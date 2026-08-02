@@ -1,0 +1,95 @@
+---
+title: "Prerequisites for LASUMedScreen Development Setup"
+sidebarTitle: "Prerequisites"
+description: "Everything you need before installing LASUMedScreen: Node.js 20, a Supabase project, a Resend API key, and Git."
+---
+
+Before you clone and run LASUMedScreen, you need a few tools and accounts in place. This page walks you through each one so that your local environment is ready before you write a single line of configuration.
+
+## Required Tools
+
+You need three command-line tools installed on your machine before you begin.
+
+<Steps>
+  <Step title="Install Node.js 20 LTS">
+    Download and install Node.js 20 LTS from [nodejs.org](https://nodejs.org). After installation, confirm the version:
+
+    ```bash Terminal
+    node --version
+    # Expected: v20.x.x
+    ```
+  </Step>
+
+  <Step title="Install pnpm">
+    LASUMedScreen uses pnpm as its package manager. Install it globally via npm:
+
+    ```bash Terminal
+    npm install -g pnpm
+    ```
+
+    Verify the installation:
+
+    ```bash Terminal
+    pnpm --version
+    # Expected: 8.x.x or higher
+    ```
+  </Step>
+
+  <Step title="Install Git">
+    You need Git to clone the repository and manage version control. Download it from [git-scm.com](https://git-scm.com) if it is not already installed, then verify:
+
+    ```bash Terminal
+    git --version
+    # Expected: git version 2.x.x
+    ```
+  </Step>
+</Steps>
+
+## Required Accounts
+
+LASUMedScreen depends on two external services. You need an active account on each platform before you can configure your environment variables.
+
+### Supabase
+
+Supabase provides the database, authentication, and storage layer for LASUMedScreen.
+
+1. Create a free account at [supabase.com](https://supabase.com).
+2. Click **New project** and fill in a name, database password, and region.
+3. Once the project is provisioned, navigate to **Settings → API**.
+4. Copy your **Project URL** and **Anon Key** — you will need both when setting up your `.env.local` file.
+
+### Resend
+
+Resend handles all transactional email for LASUMedScreen, including screening results, clearance notices, and account verification.
+
+1. Create a free account at [resend.com](https://resend.com).
+2. From the dashboard, go to **API Keys** and generate a new key.
+3. Navigate to **Domains** and add your sending domain. Follow the DNS verification steps Resend provides.
+4. For development, you can use the Resend sandbox domain (`onboarding@resend.dev`) without completing domain verification.
+
+<Note>
+  You do not need a paid plan for either Supabase or Resend to run LASUMedScreen in development. Both services offer generous free tiers that are more than sufficient for local development and testing.
+</Note>
+
+<Tip>
+  Install the Supabase CLI to unlock local database development, migrations, and Edge Function testing:
+
+  ```bash Terminal
+  npm install -g supabase
+  ```
+
+  Run `supabase --version` to confirm it installed correctly.
+</Tip>
+
+## What's Next
+
+Once your tools and accounts are ready, move on to installing the project and wiring up your environment.
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/docs/quickstart/installation">
+    Clone the repo, install dependencies, and start the dev server.
+  </Card>
+  <Card title="Environment Variables" icon="key" href="/docs/quickstart/environment-variables">
+    Configure your Supabase credentials, Resend API key, and app URL.
+  </Card>
+</CardGroup>

@@ -1,0 +1,119 @@
+---
+title: "Performance Optimization in LASUMedScreen"
+sidebarTitle: "Performance"
+description: "Performance techniques in LASUMedScreen: React Server Components, Next.js caching, lazy loading, image optimization, Supabase query optimization, and bundle size."
+---
+
+Performance directly affects whether students can complete their medical screening without frustration, especially on mobile networks. LASUMedScreen is architected to minimize JavaScript sent to the browser, eliminate client-side data waterfalls, and serve every asset in the most efficient format available. This page documents each optimization technique and how you can extend it.
+
+## Performance Architecture
+
+The following table summarizes the core optimizations applied across the stack and their primary impact.
+
+| Optimization | Technique | Impact |
+|---|---|---|
+| Initial page load | React Server Components | No client JS for static content |
+| Data fetching | Server-side fetch with cache | Eliminates client waterfalls |
+| Images | next/image | Automatic WebP, lazy loading |
+| Code splitting | Dynamic imports | Smaller initial bundle |
+| Database queries | Indexed columns, select specific fields | Faster queries |
+| API responses | Pagination | Limits payload size |
+| Fonts | next/font | Zero layout shift |
+
+## React Server Components
+
+Dashboard pages are Server Components by default. They fetch data directly from Supabase on the server during the render pass, which means zero client-side JavaScript is needed for the initial data load, no loading spinners appear for primary content, and the browser receives fully-formed HTML.
+
+```tsx app/(dashboard)/student/dashboard/page.tsx
+// This entire component runs on the server
+// No useEffect, no loading states, no API calls from the browser
+export default async function StudentDashboard() {
+  const supabase = createClient()
+  const { data: screenings } = await supabase
+    .from('screenings')
+    .select('id, status, created_at')
+    .order('created_at', { ascending: false })
+    .limit(10)
+  return <ScreeningList screenings={screenings} />
+}
+```
+
+Only components that require interactivity — forms, modals, dropdowns — are marked `'use client'` and shipped as JavaScript bundles.
+
+## Next.js Caching
+
+Next.js 15 layers four independent caches that you can configure per-route and per-fetch.
+
+1. **Request memoization** — identical `fetch` calls within the same render pass are deduplicated automatically, so you can call the same Supabase query in a layout and a page without triggering two round trips
+2. **Data cache** — fetch responses are persisted on the server and reused across requests until explicitly invalidated; set `{ next: { revalidate: 60 } }` on a fetch to refresh it every 60 seconds
+3. **Full Route Cache** — statically renderable routes are stored as HTML and served without any server computation
+4. **Router Cache** — the client-side router caches visited segments in memory, making back-navigation instant
+
+After a mutation (form submission, status update), call `revalidatePath` to purge the affected route from the Data Cache and Full Route Cache:
+
+```ts app/actions/screening.ts
+import { revalidatePath } from 'next/cache'
+
+export async function approveScreening(id: string) {
+  await supabase.from('screenings').update({ status: 'approved' }).eq('id', id)
+  revalidatePath('/admin/screenings')
+  revalidatePath(`/admin/screenings/${id}`)
+}
+```
+
+## Dynamic Imports
+
+Heavy components — rich text editors, PDF viewers, complex modals — are loaded only when they are needed using `next/dynamic`. This keeps the initial JavaScript bundle small and reduces Time to Interactive for users who never open those components.
+
+```ts components/admin/index.ts
+import dynamic from 'next/dynamic'
+
+const ScreeningReviewModal = dynamic(
+  () => import('@/components/admin/ScreeningReviewModal'),
+  { loading: () => <Spinner />, ssr: false }
+)
+```
+
+Setting `ssr: false` prevents the component from being server-rendered, which is appropriate for modals and UI that depends entirely on browser APIs.
+
+## Image Optimization
+
+All images use the `next/image` component, which automatically converts images to WebP, generates multiple srcset sizes for different screen densities, and lazy-loads images below the fold.
+
+```tsx components/common/Logo.tsx
+import Image from 'next/image'
+
+<Image
+  src="/logo.png"
+  alt="LASUMedScreen Logo"
+  width={200}
+  height={60}
+  priority  // above the fold
+/>
+```
+
+Use `priority` on any image that is visible without scrolling (the logo, hero image) to tell Next.js to preload it. Omit it for images below the fold so the browser can defer their download.
+
+## Database Query Optimization
+
+Slow database queries are the most common performance bottleneck in data-driven applications. Apply these rules consistently across all Supabase queries in LASUMedScreen.
+
+- Always use `.select('specific, columns')` — never use `select('*')` on large tables, as fetching unused columns wastes bandwidth and serialization time
+- Add indexes on every column that appears in a `.eq()`, `.in()`, or `.order()` clause
+- Use pagination with `.range(from, to)` on any list query that could return more than 20 rows
+
+```sql migrations/add_screening_indexes.sql
+CREATE INDEX idx_screenings_student_id ON screenings(student_id);
+CREATE INDEX idx_screenings_status ON screenings(status);
+CREATE INDEX idx_screenings_created_at ON screenings(created_at DESC);
+```
+
+The `created_at DESC` index matches the default sort order used on the admin dashboard, allowing Postgres to serve sorted results without a separate sort step.
+
+## Bundle Size
+
+A large JavaScript bundle delays interactivity, especially on mobile. Keep your bundle lean with these practices.
+
+- Run `pnpm build` and review the route-by-route output in the terminal — Next.js flags any route whose First Load JS exceeds 130 kB
+- Install `@next/bundle-analyzer` and set `ANALYZE=true pnpm build` to open an interactive treemap showing exactly which packages contribute to each chunk
+- Import only the functions you use from large libraries — for example, import `{ format }` from `date-fns` rather than the entire package

@@ -1,0 +1,48 @@
+---
+title: "System Requirements for LASUMedScreen Development"
+sidebarTitle: "Requirements"
+description: "Prerequisites for running LASUMedScreen locally: Node.js version, package manager, Supabase account, Resend account, and recommended development tools."
+---
+
+Before you can run, develop, or deploy LASUMedScreen, you need to ensure your local environment meets the runtime requirements and that you have active accounts with the two external services the platform depends on. This page lists everything you need so you can complete setup without interruption.
+
+## Runtime Requirements
+
+The table below shows the minimum and recommended versions for each local dependency. Using the recommended versions ensures compatibility with the tooling and configuration files already present in the repository.
+
+| Requirement | Minimum Version | Recommended |
+|---|---|---|
+| Node.js | 18.17+ | 20 LTS |
+| npm / yarn / pnpm | npm 9+ | pnpm 8+ |
+| Git | 2.x | Latest |
+| OS | macOS / Linux / Windows (WSL) | macOS or Linux |
+
+<Tip>
+  Use pnpm for faster installs and better monorepo support. All examples in this documentation use pnpm.
+</Tip>
+
+## External Services
+
+LASUMedScreen relies on two cloud services for its backend and email functionality. You need a free account with each provider before you can run the application end-to-end.
+
+<CardGroup cols={2}>
+  <Card icon="database" title="Supabase Account">
+    Create a free account at [supabase.com](https://supabase.com) and spin up a new project. You will need your project URL and anon (public) key to populate the environment variables.
+  </Card>
+  <Card icon="envelope" title="Resend Account">
+    Create a free account at [resend.com](https://resend.com). You will need an API key and a verified sending domain to dispatch transactional emails from the platform.
+  </Card>
+</CardGroup>
+
+<Note>
+  A Supabase free tier project is sufficient for local development. For production, consider the Pro plan for higher connection limits and daily backups.
+</Note>
+
+## Recommended Tools
+
+The following tools are not strictly required to run the project, but they will make your development experience significantly smoother:
+
+- **VS Code** with the [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint), [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode), and [Tailwind CSS IntelliSense](https://marketplace.visualstudio.com/items?itemName=bradlc.vscode-tailwindcss) extensions for in-editor linting, formatting, and utility class autocomplete.
+- **Supabase CLI** for running a local Supabase stack, applying database migrations, generating TypeScript types, and managing Edge Functions without touching the remote project.
+- **Postman** or **Bruno** for manually testing API Route Handlers and Edge Function endpoints during development.
+- **TablePlus** or **DBeaver** for visually inspecting and querying the Postgres database, which is particularly useful when debugging RLS policies and verifying migration results.

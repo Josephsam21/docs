@@ -1,0 +1,90 @@
+---
+title: "Environment Variables Reference for LASUMedScreen"
+sidebarTitle: "Env Variables"
+description: "Complete reference for every environment variable in LASUMedScreen: Supabase credentials, Resend API key, app URL, and optional configuration."
+---
+
+LASUMedScreen is configured entirely through environment variables. This page documents every variable, its purpose, whether it's required, and example values. Copy `.env.example` from the repository root and rename it to `.env.local` to get started.
+
+## Variable Categories
+
+<Tabs>
+  <Tab title="Supabase">
+    These variables connect LASUMedScreen to your Supabase project. You can find all three values in your Supabase dashboard under **Settings → API**.
+
+    | Variable | Required | Description | Where to find |
+    |---|---|---|---|
+    | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Your Supabase project URL | Settings → API → Project URL |
+    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Public anon key | Settings → API → anon public |
+    | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Admin key (server-only) | Settings → API → service_role |
+
+    The `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are safe to expose in the browser — Supabase's Row Level Security policies restrict what the anon key can access. The `SUPABASE_SERVICE_ROLE_KEY` bypasses RLS entirely and must never appear in client-side code.
+  </Tab>
+
+  <Tab title="Resend">
+    These variables configure transactional email delivery via Resend.
+
+    | Variable | Required | Description | Where to find |
+    |---|---|---|---|
+    | `RESEND_API_KEY` | Yes | Resend API key | Resend Dashboard → API Keys |
+    | `RESEND_FROM_EMAIL` | Yes | Verified sending address | Your verified Resend domain |
+
+    The `RESEND_FROM_EMAIL` must be an address on a domain you have verified in the Resend dashboard. Attempting to send from an unverified domain will result in a 403 error.
+  </Tab>
+
+  <Tab title="App">
+    These variables control application-level behaviour such as the base URL used in emails and the display name shown in the UI.
+
+    | Variable | Required | Description | Example |
+    |---|---|---|---|
+    | `NEXT_PUBLIC_APP_URL` | Yes | Base URL (no trailing slash) | `https://medscreen.youruniversity.edu.ng` |
+    | `NEXT_PUBLIC_APP_NAME` | No | App display name | Default: `LASUMedScreen` |
+
+    `NEXT_PUBLIC_APP_URL` is used to construct absolute URLs in transactional emails (e.g., the "View Screening" button link). Set it to `http://localhost:3000` in development and your production domain in production.
+  </Tab>
+
+  <Tab title="All Variables">
+    Copy the block below into a file named `.env.local` at the root of your project, then fill in the values for your environment.
+
+    ```bash .env.example
+    # ============================================
+    # Supabase Configuration
+    # ============================================
+    # Your Supabase project URL
+    NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+
+    # Supabase public anon key (safe to expose in browser)
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    # Supabase service role key (NEVER expose in browser)
+    # Used in server-side code and Edge Functions only
+    SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    # ============================================
+    # Resend Email
+    # ============================================
+    # Your Resend API key
+    RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+    # Verified sending email address
+    RESEND_FROM_EMAIL=noreply@youruniversity.edu.ng
+
+    # ============================================
+    # Application
+    # ============================================
+    # Base URL of the application (no trailing slash)
+    NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+    # Application display name (used in emails and UI)
+    NEXT_PUBLIC_APP_NAME=LASUMedScreen
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+  Variables prefixed with `NEXT_PUBLIC_` are embedded in the client-side JavaScript bundle and are visible to anyone who inspects your application. Never prefix secrets like `SUPABASE_SERVICE_ROLE_KEY` or `RESEND_API_KEY` with `NEXT_PUBLIC_`.
+</Warning>
+
+<Tip>
+  Use Vercel's Environment Variables UI to manage different values per environment (development, preview, production). This lets you point preview deployments at a staging Supabase project while production uses its own isolated project.
+</Tip>

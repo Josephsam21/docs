@@ -1,0 +1,129 @@
+---
+title: "Deploy LASUMedScreen to Production on Vercel"
+sidebarTitle: "Deployment"
+description: "Deploy LASUMedScreen to Vercel in minutes. Set environment variables, configure your Supabase production project, and go live."
+---
+
+LASUMedScreen is optimised for deployment on Vercel, but can run on any platform that supports Node.js 20 and Next.js 15. This page covers the recommended Vercel workflow, production Supabase configuration, and self-hosted options for teams that need full infrastructure control.
+
+## Deploy to Vercel
+
+Vercel is the fastest path from repository to production URL. It handles build caching, CDN distribution, and automatic preview deployments for every pull request out of the box.
+
+<Steps>
+  <Step title="Push your code to a Git provider">
+    Make sure your LASUMedScreen repository is pushed to a GitHub, GitLab, or Bitbucket account. Vercel connects directly to your Git provider to trigger builds on every push.
+
+    ```bash Terminal
+    git add .
+    git commit -m "Initial commit"
+    git push origin main
+    ```
+  </Step>
+
+  <Step title="Import the repository on Vercel">
+    Go to [vercel.com](https://vercel.com), sign in, and click **Add New → Project**. Select your Git provider, find the `lasumedscreen` repository, and click **Import**.
+  </Step>
+
+  <Step title="Set the framework preset">
+    Vercel should automatically detect Next.js. If it does not, open the **Framework Preset** dropdown and select **Next.js**. Leave the build command and output directory at their default values.
+  </Step>
+
+  <Step title="Add environment variables">
+    Before clicking Deploy, expand the **Environment Variables** section and add all the variables from your `.env.local` file — replacing every value with your **production** credentials. Use your production Supabase project URL and keys, your verified Resend sending domain, and your live app URL.
+
+    See the [Environment Variables](/docs/quickstart/environment-variables) page for the full variable reference.
+  </Step>
+
+  <Step title="Deploy">
+    Click **Deploy**. Vercel runs `pnpm build`, performs any output optimisations, and publishes the app to a `.vercel.app` URL. Subsequent pushes to `main` trigger automatic redeployments.
+  </Step>
+</Steps>
+
+## Production Supabase Setup
+
+Your production deployment must use a dedicated Supabase project that is completely separate from the one you use for development. Sharing a project between environments risks data loss and exposes student medical records to development-level access controls.
+
+- **Create a new project** at [supabase.com](https://supabase.com) specifically for production. Name it clearly, for example `lasumedscreen-prod`.
+- **Enable Row Level Security** on every table before going live. RLS ensures that students, doctors, and administrators can only access the rows they are authorised to see, regardless of the API key used.
+- **Configure Auth settings** — in your Supabase dashboard go to **Authentication → URL Configuration** and set:
+  - **Site URL** to your production domain (e.g. `https://lasumedscreen.youruniversity.edu.ng`)
+  - **Redirect URLs** to include all allowed post-auth redirect paths.
+- **Run migrations** against your production database using the Supabase CLI:
+
+  ```bash Terminal
+  supabase db push --db-url your-production-db-url
+  ```
+
+  Replace `your-production-db-url` with the connection string shown in **Settings → Database** in your production Supabase project.
+
+## Self-Hosted Deployment
+
+If your institution requires on-premises hosting or a private cloud environment, you can build and run LASUMedScreen without Vercel.
+
+<Tabs>
+  <Tab title="Docker">
+    Create a `Dockerfile` in the project root with the following contents, then build and run the image:
+
+    ```dockerfile Dockerfile
+    FROM node:20-alpine AS base
+    WORKDIR /app
+    COPY package*.json ./
+    RUN npm ci --only=production
+    COPY . .
+    RUN npm run build
+    EXPOSE 3000
+    CMD ["npm", "start"]
+    ```
+
+    Build and run the container:
+
+    ```bash Terminal
+    docker build -t lasumedscreen .
+    docker run -p 3000:3000 --env-file .env.production lasumedscreen
+    ```
+
+    Pass all environment variables via a `.env.production` file or your container orchestration platform's secrets management.
+  </Tab>
+
+  <Tab title="Node.js">
+    On any server running Node.js 20, build the application and start the production server directly:
+
+    ```bash Terminal
+    pnpm build
+    pnpm start
+    ```
+
+    The production server listens on port 3000 by default. Use a reverse proxy such as Nginx or Caddy to terminate TLS and forward traffic to the Node.js process.
+  </Tab>
+</Tabs>
+
+## Deployment Checklist
+
+Use this checklist before every production release to make sure nothing critical is missing.
+
+<Note>
+  **Pre-launch checklist**
+
+  - [ ] All environment variables set in your hosting platform
+  - [ ] Supabase production project created (separate from dev)
+  - [ ] Row Level Security enabled on all tables
+  - [ ] Resend sending domain verified
+  - [ ] Auth redirect URLs configured in Supabase dashboard
+  - [ ] Production build tested locally with `pnpm build && pnpm start`
+</Note>
+
+<Warning>
+  Never use your development Supabase project in production. Development projects frequently have RLS disabled for convenience, permissive policies, and test data. Create a separate production project with its own URL and credentials, and treat those credentials as highly sensitive.
+</Warning>
+
+## What's Next
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="key" href="/docs/quickstart/environment-variables">
+    Review every environment variable and where to find its production value.
+  </Card>
+  <Card title="Build & Deployment" icon="rocket" href="/docs/configuration/build-and-deployment">
+    Advanced build configuration, CI/CD pipelines, and multi-environment strategies.
+  </Card>
+</CardGroup>

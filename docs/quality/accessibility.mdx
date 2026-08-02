@@ -1,0 +1,99 @@
+---
+title: "Accessibility in LASUMedScreen: WCAG 2.1 AA Compliance"
+sidebarTitle: "Accessibility"
+description: "LASUMedScreen accessibility features: WCAG 2.1 AA compliance, keyboard navigation, semantic HTML, ARIA labels, screen reader support, and responsive design."
+---
+
+LASUMedScreen is built with accessibility as a first-class concern, targeting WCAG 2.1 AA compliance. Every interactive element is keyboard-navigable, every image has alt text, and the UI is fully usable without a mouse. This matters for a university health platform where students may rely on assistive technology or be accessing the application from a range of devices and network conditions.
+
+## WCAG 2.1 AA Compliance
+
+The table below maps the most relevant WCAG 2.1 success criteria to their concrete implementation in LASUMedScreen.
+
+| Criterion | Implementation |
+|---|---|
+| 1.1.1 Non-text Content | All images have descriptive alt attributes |
+| 1.3.1 Info and Relationships | Semantic HTML (`header`, `main`, `nav`, `section`) |
+| 1.4.3 Contrast | Minimum 4.5:1 ratio for normal text |
+| 1.4.4 Resize Text | All text resizes up to 200% without loss of content or functionality |
+| 2.1.1 Keyboard | All interactive elements are keyboard-accessible |
+| 2.4.1 Bypass Blocks | Skip-to-main-content link at the top of every page |
+| 2.4.3 Focus Order | Logical tab order throughout all forms |
+| 2.4.7 Focus Visible | Visible focus rings on all interactive elements |
+| 3.1.1 Language | `<html lang="en">` set in root layout |
+| 4.1.2 Name, Role, Value | ARIA labels on all icon-only buttons |
+
+## Semantic HTML
+
+All pages use proper HTML landmark elements so assistive technologies can build an accurate document outline and allow users to jump between sections.
+
+```html layouts/root.html
+<header> — site header and navigation
+<main>   — primary page content
+<nav>    — navigation menus
+<section> — content sections with aria-labelledby headings
+<form>   — all forms
+<table> with <thead>, <tbody>, <th scope="col"> — data tables
+<button> — all interactive controls (never <div> or <span> with onClick)
+```
+
+You should never use a generic element with an `onClick` handler as a substitute for a `<button>` or `<a>`. Buttons receive keyboard focus, fire on Enter and Space, and announce their role to screen readers automatically — none of which apply to `<div>` or `<span>`.
+
+## Keyboard Navigation
+
+Every workflow in LASUMedScreen can be completed using only a keyboard. The following behaviors are consistently implemented across the application.
+
+- All forms support **Tab** to advance to the next field and **Shift+Tab** to move backward
+- Modal dialogs **trap focus** within themselves while open and return focus to the trigger element when closed
+- Modal dialogs close on the **Escape** key
+- Dropdown menus respond to **Arrow Up** and **Arrow Down** to move between options
+- Forms can be submitted with the **Enter** key from any text input
+- A **skip navigation link** is rendered at the top of each page, visible on focus, that jumps directly to `#main-content`
+
+## ARIA Implementation
+
+ARIA attributes bridge the gap between custom UI patterns and assistive technology. LASUMedScreen applies ARIA attributes consistently for icon buttons, form errors, loading states, and live regions.
+
+```tsx components/common/aria-examples.tsx
+// Icon-only button
+<button aria-label="Close modal">
+  <XIcon className="h-4 w-4" />
+</button>
+
+// Form error
+<input
+  aria-describedby="email-error"
+  aria-invalid={!!errors.email}
+/>
+<p id="email-error" role="alert">{errors.email?.message}</p>
+
+// Loading state
+<button aria-busy={isSubmitting} disabled={isSubmitting}>
+  {isSubmitting ? 'Submitting...' : 'Submit'}
+</button>
+
+// Status badge
+<span role="status" aria-label="Screening status: approved">
+  <StatusBadge status="approved" />
+</span>
+```
+
+The `role="alert"` on the error paragraph causes screen readers to announce the error message automatically when it appears in the DOM, without the user needing to navigate to it.
+
+## Screen Reader Testing
+
+LASUMedScreen is tested against the following screen reader and browser combinations before each release.
+
+- **macOS VoiceOver** with Safari — the primary testing environment for Apple devices
+- **NVDA** on Windows with Chrome — the most widely used free screen reader on Windows
+- **TalkBack** on Android with Chrome — covers mobile screen reader users
+
+Testing focuses on form completion flows, status update announcements, modal interactions, and navigation between dashboard sections.
+
+## Responsive Design
+
+LASUMedScreen uses a mobile-first approach with Tailwind CSS breakpoints (`sm`, `md`, `lg`, `xl`). Layouts are single-column on small screens and expand to multi-column on larger viewports. Every touch target — buttons, links, checkboxes — has a minimum size of **44×44 pixels** as recommended by WCAG 2.5.5. No page requires horizontal scrolling on a 320 px viewport.
+
+<Tip>
+  Install the [axe DevTools](https://www.deque.com/axe/devtools/) browser extension to audit accessibility directly in Chrome or Firefox DevTools. For automated checks during development, run `pnpm lint` — the Next.js default ESLint configuration includes `eslint-plugin-jsx-a11y`, which catches common issues like missing alt text and invalid ARIA usage at build time.
+</Tip>

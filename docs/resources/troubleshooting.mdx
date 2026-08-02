@@ -1,0 +1,265 @@
+---
+title: "Troubleshooting LASUMedScreen Common Issues"
+sidebarTitle: "Troubleshooting"
+description: "Solutions to the most common LASUMedScreen issues: Supabase connection errors, auth redirect problems, email not sending, build failures, and RLS policy errors."
+---
+
+This page covers the most common issues developers encounter when setting up, running, and deploying LASUMedScreen, with step-by-step solutions for each.
+
+## Environment and Setup Issues
+
+<AccordionGroup>
+  <Accordion title="Error: NEXT_PUBLIC_SUPABASE_URL is not defined">
+    **Cause:** The `.env.local` file is missing from the project root or was not loaded because the dev server was not restarted after the file was created.
+
+    **Fix:**
+    1. Check that `.env.local` exists at the root of the project (the same level as `package.json`).
+    2. If it is missing, copy the example file and fill in your values:
+       ```bash .env.local
+       cp .env.example .env.local
+       ```
+    3. Open `.env.local` and set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from your Supabase project's **API settings** page.
+    4. Stop the dev server and restart it — Next.js only reads `.env.local` at startup.
+
+    <Warning>
+      Variables prefixed with `NEXT_PUBLIC_` are embedded into the client bundle at build time. Any change requires a full server restart or rebuild to take effect.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="Module not found: Can't resolve '@/lib/...'">
+    **Cause:** TypeScript path aliases are not configured correctly, or `node_modules` is out of date and missing generated files.
+
+    **Fix:**
+    1. Open `tsconfig.json` and verify the `paths` configuration is present:
+       ```json tsconfig.json
+       {
+         "compilerOptions": {
+           "baseUrl": ".",
+           "paths": {
+             "@/*": ["./*"]
+           }
+         }
+       }
+       ```
+    2. Confirm that `next.config.ts` does not override or conflict with this alias.
+    3. Delete `node_modules` and reinstall dependencies:
+       ```bash
+       rm -rf node_modules
+       pnpm install
+       ```
+    4. Restart the dev server.
+  </Accordion>
+
+  <Accordion title="pnpm dev fails with port 3000 already in use">
+    **Fix — Option A:** Start the dev server on a different port:
+    ```bash
+    pnpm dev -- --port 3001
+    ```
+
+    **Fix — Option B:** Find and kill the process occupying port 3000:
+    ```bash
+    # macOS / Linux
+    lsof -ti:3000 | xargs kill
+
+    # Windows (PowerShell)
+    Get-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess | Stop-Process
+    ```
+    Then run `pnpm dev` again.
+  </Accordion>
+</AccordionGroup>
+
+## Authentication Issues
+
+<AccordionGroup>
+  <Accordion title="Redirected to login immediately after logging in">
+    **Cause:** The OAuth or magic-link callback URL is not whitelisted in Supabase, so the auth callback fails silently and the session is never established.
+
+    **Fix:**
+    1. Open the **Supabase Dashboard** and go to **Authentication → URL Configuration**.
+    2. Set **Site URL** to your production domain (e.g., `https://lasumedscreen.vercel.app`).
+    3. Under **Redirect URLs**, add both:
+       - `http://localhost:3000/auth/callback` (development)
+       - `https://yourdomain.com/auth/callback` (production)
+    4. Save the settings and test again.
+
+    <Note>
+      Supabase matches redirect URLs exactly. A trailing slash or `https` vs `http` mismatch will cause the callback to fail.
+    </Note>
+  </Accordion>
+
+  <Accordion title="Email verification not arriving">
+    **Fix:**
+    1. Check your spam and junk folders first.
+    2. In the **Supabase Dashboard**, go to **Authentication → Email Templates** and confirm that email confirmation is enabled.
+    3. If you have configured a custom SMTP provider (Resend), verify the API key and sender address in **Authentication → SMTP Settings**.
+    4. Check **Authentication → Logs** in the Supabase Dashboard for delivery errors.
+    5. In development, consider disabling email confirmation temporarily via **Authentication → Providers → Email** to unblock local testing.
+  </Accordion>
+
+  <Accordion title="Invalid session on page refresh">
+    **Cause:** The Supabase middleware client is not forwarding the refreshed session cookie back to the browser, so the session expires on the next request even though it was successfully refreshed.
+
+    **Fix:** Open `middleware.ts` and ensure that you both call `getSession()` to trigger the refresh **and** return the updated `response` object, not `NextResponse.next()`:
+
+    ```ts middleware.ts
+    import { createServerClient } from "@supabase/ssr";
+    import { NextResponse, type NextRequest } from "next/server";
+
+    export async function middleware(request: NextRequest) {
+      let response = NextResponse.next({ request });
+
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll: () => request.cookies.getAll(),
+            setAll: (cookiesToSet) => {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                response.cookies.set(name, value, options)
+              );
+            },
+          },
+        }
+      );
+
+      // This line triggers session refresh and sets the updated cookie
+      await supabase.auth.getUser();
+
+      return response; // Must return this response, not NextResponse.next()
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Database and RLS Issues
+
+<AccordionGroup>
+  <Accordion title="new row violates row-level security policy">
+    **Cause:** The insert or update operation is being denied by a Row Level Security policy on the target table. This usually means the authenticated user's `auth.uid()` does not match the value expected by the policy.
+
+    **Fix:**
+    1. Confirm the user is authenticated before making the request. An unauthenticated Supabase client will fail all RLS-protected writes.
+    2. Check that the `student_id` (or `user_id`) column you are inserting matches `auth.uid()` exactly.
+    3. In the **Supabase Dashboard**, go to **Database → Policies** and review the policy on the relevant table.
+    4. Use the **SQL Editor** to inspect the policy definition:
+       ```sql
+       SELECT * FROM pg_policies WHERE tablename = 'screenings';
+       ```
+    5. If the policy is correct but the insert still fails, verify you are using the anon/authenticated client (not the service role client) when testing RLS behavior.
+  </Accordion>
+
+  <Accordion title="column '...' does not exist">
+    **Cause:** The database schema was changed (a column was added, renamed, or dropped) but the `types/database.types.ts` file was not regenerated to reflect the new schema.
+
+    **Fix:** Regenerate the TypeScript types from your live Supabase project:
+    ```bash
+    supabase gen types typescript \
+      --project-id YOUR_PROJECT_ID \
+      > types/database.types.ts
+    ```
+    Replace `YOUR_PROJECT_ID` with the reference ID found in **Supabase Dashboard → Project Settings → General**. Commit the updated file.
+  </Accordion>
+
+  <Accordion title="Query returns an empty array unexpectedly">
+    **Cause:** A Row Level Security policy is silently blocking the read. Supabase returns an empty array (not an error) when RLS filters out all matching rows — this can look identical to a legitimate empty result.
+
+    **Fix:**
+    1. Open the **Supabase Dashboard → SQL Editor** and run the same query using the **service role** (bypass RLS):
+       ```sql
+       -- Run as service role to check if data actually exists
+       SELECT * FROM screenings WHERE student_id = 'YOUR_STUDENT_ID';
+       ```
+    2. If this returns rows but the application does not, an RLS policy is filtering them. Review **Database → Policies** for the table.
+    3. Verify that the authenticated user's session is valid and that `auth.uid()` returns the expected value:
+       ```sql
+       SELECT auth.uid();
+       ```
+  </Accordion>
+</AccordionGroup>
+
+## Email Issues
+
+<AccordionGroup>
+  <Accordion title="Emails are not being sent">
+    **Check the following in order:**
+
+    1. **API key:** Confirm `RESEND_API_KEY` is set in your environment (`.env.local` for development, Vercel environment variables for production). The key must start with `re_`.
+    2. **Sender address:** `RESEND_FROM_EMAIL` must be an address on a domain you have verified in your **Resend Dashboard → Domains**. Unverified domains will silently fail.
+    3. **Logs:** Open **Resend Dashboard → Logs** and filter by your domain to see the delivery status, bounce reason, or error message for recent sends.
+    4. **Development shortcut:** In development, send to `delivered@resend.dev` — this address always succeeds and lets you verify the API call works without needing a verified domain.
+  </Accordion>
+
+  <Accordion title="Edge Function fails with RESEND_API_KEY not set">
+    **Cause:** Supabase Edge Functions have their own isolated secret store and do not automatically inherit environment variables from `.env.local` or Vercel.
+
+    **Fix:** Set the secret directly in the Edge Function environment using the Supabase CLI:
+    ```bash
+    supabase secrets set RESEND_API_KEY=re_your_actual_key_here
+    ```
+    Verify it was stored correctly:
+    ```bash
+    supabase secrets list
+    ```
+    The function will pick up the new secret on the next invocation — no redeployment is required.
+
+    <Note>
+      Set secrets for each environment separately. A `supabase secrets set` command targets whichever project is currently linked via `supabase link`.
+    </Note>
+  </Accordion>
+</AccordionGroup>
+
+## Build and Deployment Issues
+
+<AccordionGroup>
+  <Accordion title="Build fails with Type error: ...">
+    **Fix:**
+    1. Run the type checker locally before pushing to catch errors early:
+       ```bash
+       pnpm type-check
+       ```
+    2. Fix every reported TypeScript error. Do not suppress errors with `// @ts-ignore` or `// @ts-expect-error` — these mask real bugs and will cause runtime issues.
+    3. If the error is in an auto-generated file (e.g., `types/database.types.ts`), regenerate it with `supabase gen types` rather than editing it manually.
+    4. After fixing, run `pnpm build` locally to confirm the production build succeeds before pushing.
+  </Accordion>
+
+  <Accordion title="Vercel deployment fails with missing environment variables">
+    **Fix:**
+    1. Open **Vercel Dashboard → your project → Settings → Environment Variables**.
+    2. Add every variable from your `.env.local` file that is required at build time or runtime. At minimum:
+       - `NEXT_PUBLIC_SUPABASE_URL`
+       - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+       - `SUPABASE_SERVICE_ROLE_KEY`
+       - `RESEND_API_KEY`
+       - `RESEND_FROM_EMAIL`
+    3. Set the correct **Environment** scope (Production, Preview, Development) for each variable.
+    4. Trigger a new deployment — Vercel does not automatically redeploy after adding env vars.
+  </Accordion>
+
+  <Accordion title="supabase db push fails">
+    **Fix:**
+    1. Ensure you are authenticated with the Supabase CLI:
+       ```bash
+       supabase login
+       ```
+    2. Link your local project to the correct Supabase project reference:
+       ```bash
+       supabase link --project-ref YOUR_PROJECT_REF
+       ```
+       Find `YOUR_PROJECT_REF` in **Supabase Dashboard → Project Settings → General → Reference ID**.
+    3. Run the push again:
+       ```bash
+       supabase db push
+       ```
+    4. If the push fails due to a migration conflict, check `supabase/migrations/` for duplicate or out-of-order timestamps and resolve them before retrying.
+  </Accordion>
+</AccordionGroup>
+
+## Getting Help
+
+If you cannot resolve an issue using this page, the following resources are available:
+
+- **Supabase Discord** — [discord.supabase.com](https://discord.supabase.com) — active community with Supabase team members present.
+- **Next.js GitHub Discussions** — [github.com/vercel/next.js/discussions](https://github.com/vercel/next.js/discussions) — for framework-level questions.
+- **Resend Support** — [resend.com/support](https://resend.com/support) — for email delivery and API issues.
+- **Stack Overflow** — Tag your questions with `supabase`, `next.js`, and `resend` to reach the right communities.

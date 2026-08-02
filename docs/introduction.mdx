@@ -1,0 +1,55 @@
+---
+title: "LASUMedScreen: Modern Student Medical Screening Platform"
+sidebarTitle: "Introduction"
+description: "LASUMedScreen digitizes student health screening and clearance for universities. Learn what the platform does, who it serves, and how it's structured."
+---
+
+LASUMedScreen is a web-based medical screening and clearance platform built for Lagos State University (LASU). It replaces paper-based health screening processes with a streamlined digital workflow that serves three groups of users: students who submit their medical information, medical staff who review and act on submissions, and administrators who manage the overall process. By centralising every step of the screening lifecycle into a single application, LASUMedScreen eliminates lost forms, manual follow-ups, and opaque clearance statuses.
+
+## What is LASUMedScreen?
+
+LASUMedScreen allows students to complete detailed medical screening questionnaires online, track the status of their submissions in real time, and receive automated email notifications when their clearance status changes. Medical staff and administrators access a separate dashboard where they can review each submission, attach notes, and issue an approval, rejection, or flag for follow-up.
+
+The platform is built around two primary roles:
+
+- **Student** — Registers an account, completes the multi-step medical screening form, and monitors clearance status from a personal dashboard.
+- **Medical Staff / Admin** — Reviews incoming submissions, updates clearance decisions, adds clinical notes, and manages the screening workflow across all enrolled students.
+
+Row Level Security (RLS) policies enforced at the database level ensure that students can only ever access their own records, while staff accounts have the elevated permissions required to view and act on all submissions.
+
+## Core Workflow
+
+The end-to-end screening process follows five ordered steps from student registration through to final notification.
+
+<Steps>
+  <Step title="Student Registers or Logs In">
+    A new student creates an account using their university email address. Returning students authenticate via email and password or a magic link. Supabase Auth handles identity verification and session management.
+  </Step>
+  <Step title="Student Completes the Medical Screening Form">
+    After logging in, the student is guided through a multi-step health questionnaire. Each section is validated before the student can advance, and progress is preserved so the form can be resumed across sessions.
+  </Step>
+  <Step title="Medical Staff Reviews the Submission">
+    Submitted forms appear in the staff dashboard queue. A medical officer opens the submission, reviews all declared health information, and can attach internal notes before making a clearance decision.
+  </Step>
+  <Step title="Clearance Status is Updated">
+    The staff member marks the submission as **Approved**, **Rejected**, or **Flagged for Review**. The decision is written to the database instantly and reflected in the student's dashboard in real time via Supabase Realtime.
+  </Step>
+  <Step title="Student Receives an Email Notification">
+    Resend dispatches a transactional email to the student informing them of the outcome. Approved students receive their clearance confirmation; rejected or flagged students receive guidance on next steps.
+  </Step>
+</Steps>
+
+## Who Is This Documentation For?
+
+This documentation is written for **developers** who are deploying, maintaining, or extending LASUMedScreen. It assumes you are comfortable with TypeScript and React, and that you have a working knowledge of Next.js. You do not need prior experience with Supabase or Resend — each integration is explained from first principles.
+
+Whether you are setting the project up for the first time, adding a new feature to the screening form, writing a new Edge Function, or troubleshooting a production issue, this documentation gives you the context and reference material you need.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/docs/quickstart/prerequisites">
+    Get the project running locally in minutes. Covers environment setup, Supabase configuration, and your first development server run.
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/docs/architecture/overview">
+    Understand how the application is structured: folder layout, data flow, authentication model, and deployment topology.
+  </Card>
+</CardGroup>

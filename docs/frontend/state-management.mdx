@@ -1,0 +1,156 @@
+---
+title: "State Management in LASUMedScreen: Hooks, Context, and Caching"
+sidebarTitle: "State Management"
+description: "How LASUMedScreen manages state: React Server Components for server data, React Hook Form for forms, Supabase Realtime for live updates, and client context for auth."
+---
+
+LASUMedScreen uses a layered state management approach — server state lives in React Server Components and is fetched directly from Supabase, while client state is managed locally with hooks and context. This architecture keeps the client bundle small, avoids redundant client-side fetches for data that does not change during a session, and reserves the reactive client layer for genuinely interactive concerns like form state, real-time updates, and UI toggles.
+
+## State Layers
+
+The table below maps each category of state to the solution used, and the component location where that solution lives.
+
+| State Type | Solution | Location |
+|---|---|---|
+| Server / DB data | RSC + Supabase | Server Components |
+| Auth session | Supabase Auth context | Client Provider |
+| Form state | React Hook Form + Zod | Client Components |
+| UI state (modals, toasts) | `useState` / `useReducer` | Client Components |
+| Real-time updates | Supabase Realtime | Client hook |
+| Server cache | Next.js `fetch` cache | Server |
+
+Server Components fetch data at render time using the Supabase server client from `@/lib/supabase/server`. Because these components never ship to the browser, you can safely use service-role credentials or server-only secrets without exposure risk. Next.js caches these fetches according to the `revalidate` option you pass — dashboard pages use `revalidate: 60` for a one-minute stale-while-revalidate window, while the screening review page uses `revalidate: 0` (no cache) so admins always see the latest submission state.
+
+## Auth Context
+
+Authentication state is the one piece of server-originated data that must be available to client components throughout the tree. LASUMedScreen solves this with a `SessionProvider` component that is mounted once in the root layout, seeded with the initial server-read session, and kept in sync with Supabase Auth state changes via the `onAuthStateChange` listener.
+
+```tsx components/providers/SessionProvider.tsx
+'use client'
+import { createContext, useContext, useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import type { Session } from '@supabase/supabase-js'
+
+const SessionContext = createContext<Session | null>(null)
+
+export function SessionProvider({ children, initialSession }: {
+  children: React.ReactNode
+  initialSession: Session | null
+}) {
+  const [session, setSession] = useState(initialSession)
+  const supabase = createClient()
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_, session) => setSession(session)
+    )
+    return () => subscription.unsubscribe()
+  }, [])
+
+  return (
+    <SessionContext.Provider value={session}>
+      {children}
+    </SessionContext.Provider>
+  )
+}
+
+export const useSession = () => useContext(SessionContext)
+```
+
+The `initialSession` prop is populated in `app/layout.tsx` by reading the session from the Supabase server client during the server render. This means the session is available immediately on the first paint — there is no loading flicker waiting for a client-side auth check. The `onAuthStateChange` subscription then keeps the context current if the session is refreshed, revoked, or a new login occurs in another tab.
+
+Call `useSession()` in any client component that needs to know the current user:
+
+```tsx components/shared/UserMenu.tsx
+'use client'
+import { useSession } from '@/components/providers/SessionProvider'
+
+export function UserMenu() {
+  const session = useSession()
+  if (!session) return null
+
+  return (
+    <div>
+      <span>{session.user.email}</span>
+      <span>{session.user.user_metadata?.role}</span>
+    </div>
+  )
+}
+```
+
+## Real-Time State with Supabase
+
+When an admin approves or rejects a screening, the student's dashboard should reflect the new status without requiring a manual page refresh. LASUMedScreen achieves this with a custom hook that opens a Supabase Realtime channel scoped to the specific screening record.
+
+```ts hooks/useScreeningStatus.ts
+'use client'
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+
+export function useScreeningStatus(screeningId: string) {
+  const [status, setStatus] = useState<string | null>(null)
+  const supabase = createClient()
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`screening-${screeningId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'screenings',
+        filter: `id=eq.${screeningId}`,
+      }, (payload) => {
+        setStatus(payload.new.status)
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [screeningId])
+
+  return status
+}
+```
+
+Use this hook on the student's screening detail page to show a live status indicator:
+
+```tsx app/(dashboard)/student/screening/[id]/page.tsx
+'use client'
+import { useScreeningStatus } from '@/hooks/useScreeningStatus'
+import { Badge } from '@/components/ui'
+
+export default function ScreeningDetailPage({ params }: { params: { id: string } }) {
+  const liveStatus = useScreeningStatus(params.id)
+
+  return (
+    <div>
+      {liveStatus && <Badge variant={liveStatus}>{liveStatus}</Badge>}
+    </div>
+  )
+}
+```
+
+The `return` cleanup in the `useEffect` removes the Realtime channel when the component unmounts, preventing memory leaks and redundant database connections when the student navigates away.
+
+## Form State with React Hook Form
+
+The multi-step screening form uses a single `useForm` instance initialised with `mode: 'onChange'` so that validation feedback appears as the student types rather than only on submit. The form instance is created once in the parent `ScreeningForm` component and passed to each step via a React context, keeping all field registrations inside the same form state tree.
+
+Step-by-step validation is achieved by calling `trigger(fieldNames)` before advancing to the next step — this runs Zod validation only against the fields belonging to the current step, preventing the student from advancing with invalid data while not surfacing errors from future steps prematurely.
+
+Form data is not persisted to `localStorage` between sessions because the screening data is sensitive medical information. If a student refreshes mid-form, they must start again — a deliberate decision to avoid storing health data in the browser. The submit action is handled by a Next.js Server Action that receives the validated `ScreeningFormData` object, writes it to Supabase, and triggers the confirmation email via Resend.
+
+## Server vs. Client Components Decision Guide
+
+One of the most impactful decisions you make when adding a feature is whether the new component should be a Server Component or a Client Component. Use the table below as a quick reference.
+
+| Use a Server Component when... | Use a Client Component when... |
+|---|---|
+| Fetching initial data from Supabase | Handling user interactions (clicks, input) |
+| The component has no interactivity | Using `useState`, `useReducer`, or `useEffect` |
+| Rendering SEO-sensitive content | Subscribing to real-time data streams |
+| Accessing server-only secrets or env vars | Using browser APIs (`window`, `localStorage`) |
+| The component is only rendered once per request | Managing focus, animations, or third-party DOM libs |
+
+<Tip>
+  Prefer Server Components by default. Only add `'use client'` when you genuinely need browser APIs, event handlers, or React hooks. Keeping components on the server reduces the JavaScript bundle sent to the browser and improves initial page load performance — particularly important for students accessing the platform on low-bandwidth university networks.
+</Tip>

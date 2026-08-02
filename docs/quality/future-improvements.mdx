@@ -1,0 +1,102 @@
+---
+title: "Future Improvements and Roadmap for LASUMedScreen"
+sidebarTitle: "Future Improvements"
+description: "Planned improvements for LASUMedScreen: testing, monitoring, analytics, scalability, enhanced features, and architecture evolution ideas."
+---
+
+LASUMedScreen is production-ready for university-scale deployments, but several improvements would enhance reliability, scalability, and developer experience. This page documents the planned enhancements across testing coverage, observability, scalability, and new features — giving contributors a clear picture of where the platform is headed.
+
+## Testing
+
+The current codebase ships without automated tests. Adding a layered test suite is the highest-priority improvement for long-term maintainability.
+
+<CardGroup cols={2}>
+  <Card icon="vial" title="Unit Tests">
+    Add **Vitest** for component and utility function tests. Vitest is fast, compatible with the existing TypeScript configuration, and shares Vite's plugin ecosystem.
+  </Card>
+  <Card icon="arrows-rotate" title="Integration Tests">
+    Use **Playwright** for end-to-end workflow tests that simulate a real student completing a screening form or an admin approving a clearance request.
+  </Card>
+  <Card icon="database" title="API Tests">
+    Add supertest-style API route tests using Vitest and `next/server` to exercise each route handler directly, verifying status codes and response shapes.
+  </Card>
+  <Card icon="eye" title="Visual Regression">
+    Integrate **Chromatic** with Storybook to capture screenshots of every UI component and flag pixel-level regressions in pull requests before they reach production.
+  </Card>
+</CardGroup>
+
+The following example shows how a Vitest unit test for the screening schema would be structured once the test suite is bootstrapped.
+
+```ts tests/screening.test.ts
+import { describe, it, expect } from 'vitest'
+import { screeningSchema } from '@/lib/validations/screening'
+
+describe('screeningSchema', () => {
+  it('validates a valid screening', () => {
+    const result = screeningSchema.safeParse({
+      fullName: 'John Doe',
+      studentId: 'CSC/2021/001',
+      department: 'Computer Science',
+      level: '300',
+      hasChronicCondition: false,
+      height: 175,
+      weight: 70,
+      bloodGroup: 'O+',
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects invalid student ID format', () => {
+    const result = screeningSchema.safeParse({ studentId: '12345' })
+    expect(result.success).toBe(false)
+  })
+})
+```
+
+## Monitoring and Observability
+
+Without observability, production incidents are discovered by users before they are discovered by the team. The following tools should be integrated before the platform reaches a large student population.
+
+- **Error Tracking** — Integrate [Sentry](https://sentry.io) for real-time error capture, stack traces, and alerting. Sentry's Next.js SDK instruments both the client and the Edge runtime automatically.
+- **Analytics** — Add [PostHog](https://posthog.com) or [Vercel Analytics](https://vercel.com/analytics) to understand which features students use, where they drop off in the screening form, and how admin workflows are performing.
+- **Uptime Monitoring** — Configure [BetterUptime](https://betterstack.com/better-uptime) or [Checkly](https://www.checklyhq.com) to ping key endpoints every minute and page on-call staff when they go down.
+- **Logging** — Use structured logging with [Pino](https://getpino.io) across all API routes and Edge Functions. Forward logs to [Logtail](https://betterstack.com/logtail) or [Axiom](https://axiom.co) for searchable, long-term retention.
+- **Performance** — Enable [Vercel Speed Insights](https://vercel.com/docs/speed-insights) to track Core Web Vitals (LCP, CLS, INP) from real user sessions over time.
+
+## Scalability Enhancements
+
+The current architecture handles thousands of concurrent users comfortably. The following improvements would support tens of thousands of users and more demanding workloads.
+
+| Area | Current | Improvement |
+|---|---|---|
+| Database | Single Supabase project | Read replicas for reporting queries |
+| File Storage | Supabase Storage | CDN-backed storage for certificate PDFs |
+| Email | Resend API | Queue-based email for batch notifications |
+| Auth | Supabase Auth | SSO with university LDAP/Active Directory |
+| Realtime | Supabase Realtime | WebSockets with heartbeat reconnect logic |
+| Caching | Next.js cache | Redis for session and query caching |
+
+## Feature Roadmap
+
+The following features are planned for future releases, ordered roughly by implementation priority.
+
+1. **PDF Certificate Generation** — Use `@react-pdf/renderer` to generate clearance certificates server-side as downloadable PDFs, replacing the current screen-only clearance status page
+2. **Bulk Admin Operations** — Allow admins to select multiple screening submissions and approve or reject them in a single action, reducing repetitive work during peak enrollment periods
+3. **Medical Staff Notes Templates** — Pre-filled note templates for the most common admin responses (e.g. "Follow-up appointment required", "Documents incomplete"), reducing typing time and improving consistency
+4. **SMS Notifications** — Twilio integration for students without reliable email access, sending clearance status updates as SMS messages to their registered phone number
+5. **Audit Log** — A tamper-evident log of every admin action, recording the acting user, timestamp, affected record, and the before/after state of any changed field
+6. **Multi-Tenancy** — Support multiple universities or faculties within a single deployment, with isolated data, branding, and admin roles per tenant
+7. **Offline Support** — A Service Worker that caches the screening form shell and queues submissions locally, allowing students to complete the form in low-connectivity environments and sync when connectivity returns
+8. **API Rate Limiting** — An [Upstash Redis](https://upstash.com)-based rate limiter applied to all API routes to prevent abuse and protect the database from traffic spikes
+
+## Architecture Evolution
+
+As LASUMedScreen scales to more universities and more complex workflows, the following architectural shifts may become necessary.
+
+- **Micro-frontends** — If the platform grows to serve multiple faculties with separate engineering teams, a micro-frontend architecture would allow each team to develop, deploy, and version their module independently without coordinating a monorepo release
+- **Queue-based processing** — Replace direct Edge Function calls for long-running operations (PDF generation, batch email) with a job queue using [Inngest](https://inngest.com) or [Trigger.dev](https://trigger.dev). Job queues provide automatic retries, observability, and resilience against downstream service timeouts
+- **Event sourcing** — Introduce a Postgres event log table that records every state transition as an immutable append-only event. This provides a full audit trail of all changes, enables point-in-time reconstruction of any record, and makes complex reporting queries simpler
+
+<Note>
+  All improvement suggestions listed on this page are compatible with the existing technology stack. None of them require replacing core infrastructure — Supabase, Next.js, and Vercel remain the foundation, and each improvement builds on top of what is already in place.
+</Note>

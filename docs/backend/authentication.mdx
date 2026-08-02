@@ -1,0 +1,109 @@
+---
+title: "Authentication and Authorization in LASUMedScreen"
+sidebarTitle: "Authentication"
+description: "How LASUMedScreen handles login, registration, sessions, role-based access, and protected routes using Supabase Auth and Next.js middleware."
+---
+
+LASUMedScreen delegates all identity management to Supabase Auth, which provides secure email/password authentication, session handling via HTTP-only cookies, and seamless integration with Postgres Row Level Security. On top of that foundation, the application adds role-based access control (RBAC) with two roles — `student` and `admin` — enforced at both the Next.js middleware layer and the database level.
+
+## Auth Flow Diagram
+
+The diagram below shows the complete journey from an unauthenticated visit through role-specific dashboard routing.
+
+```mermaid
+flowchart TD
+    A[User visits app] --> B{Has session?}
+    B -- No --> C[Redirect to /login]
+    B -- Yes --> D{User role?}
+    D -- student --> E[/student/dashboard]
+    D -- admin --> F[/admin/dashboard]
+    C --> G[Login form]
+    G --> H{Credentials valid?}
+    H -- No --> I[Show error toast]
+    H -- Yes --> J[Supabase sets session cookie]
+    J --> D
+```
+
+## User Registration
+
+Students self-register at `/register` using their university email address and a secure password. After submitting the form, Supabase sends a confirmation email — the account is not active until the link in that email is clicked.
+
+When Supabase Auth creates the user, a Postgres trigger fires and inserts a corresponding row into the `profiles` table with `role = 'student'`. This means every registered user automatically has a profile record and a default role without any additional API call.
+
+```ts app/api/auth/register/route.ts
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import { registerSchema } from '@/lib/validations/auth'
+
+export async function POST(request: Request) {
+  const body = await request.json()
+  const parsed = registerSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.format() }, { status: 400 })
+  }
+
+  const supabase = createClient()
+  const { data, error } = await supabase.auth.signUp({
+    email: parsed.data.email,
+    password: parsed.data.password,
+    options: {
+      data: {
+        role: 'student',
+        fullName: parsed.data.fullName,
+        studentId: parsed.data.studentId,
+      },
+    },
+  })
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 })
+  }
+
+  return NextResponse.json({ user: data.user, session: data.session }, { status: 201 })
+}
+```
+
+## Session Management
+
+Supabase Auth stores the session as a pair of HTTP-only cookies: `sb-access-token` (a short-lived JWT) and `sb-refresh-token` (a long-lived opaque token used to obtain new access tokens). You never need to manage these cookies manually — the Supabase client handles them transparently.
+
+Key behaviours to be aware of:
+
+- **Access token lifetime:** Sessions expire after **1 hour** by default. The client SDK automatically detects expiry and uses the refresh token to obtain a new access token.
+- **Middleware refresh:** The Next.js middleware calls `createMiddlewareClient()` on every incoming request, which refreshes the session if needed and writes updated cookies to the response. This prevents users from being unexpectedly logged out mid-session.
+- **Server-side access:** In Route Handlers and Server Components, use `createClient()` from `@/lib/supabase/server` to read the session. This reads cookies from the incoming request using the Next.js `cookies()` API.
+
+## Role-Based Access
+
+LASUMedScreen uses two roles to control what each user can see and do:
+
+| Role      | Capabilities                                                                |
+| --------- | --------------------------------------------------------------------------- |
+| `student` | Submit screenings, view own records, download own clearance certificate     |
+| `admin`   | View all screenings, approve or reject submissions, access admin dashboard  |
+
+Roles are stored in two places for defence in depth:
+
+1. **`user_metadata.role`** — set at registration and readable from the session JWT. The middleware uses this value for fast route-level redirects without a database round-trip.
+2. **`profiles.role`** — stored in the database. RLS policies query this column to enforce data access rules at the Postgres layer, regardless of what the application layer does.
+
+Admin accounts are created manually by a system administrator or via a secure seed script. There is no self-registration path for the `admin` role — the registration endpoint always assigns `role = 'student'`.
+
+## Protected Routes Summary
+
+The Next.js middleware intercepts every request to `/student/*` and `/admin/*` routes. If the session is missing or the role is insufficient, the user is redirected to `/login`. Authenticated users who visit public routes like `/login` or `/register` are redirected to their role-specific dashboard.
+
+| Route Pattern       | Required Role        | Redirect if denied            |
+| ------------------- | -------------------- | ----------------------------- |
+| `/student/*`        | `student` or `admin` | `/login`                      |
+| `/admin/*`          | `admin` only         | `/login`                      |
+| `/login`            | None (public)        | `/{role}/dashboard` if signed in |
+| `/register`         | None (public)        | `/{role}/dashboard` if signed in |
+
+<Note>
+  Magic link authentication is supported natively by Supabase Auth but is not
+  enabled in the default LASUMedScreen configuration. To enable it, update the
+  **Auth → Email** settings in your Supabase dashboard to allow magic links,
+  then add a "Sign in with magic link" option to the login form that calls
+  `supabase.auth.signInWithOtp({ email })`.
+</Note>

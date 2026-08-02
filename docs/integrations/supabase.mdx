@@ -1,0 +1,147 @@
+---
+title: "Supabase Integration in LASUMedScreen: Auth, DB, and Realtime"
+sidebarTitle: "Supabase"
+description: "How LASUMedScreen integrates Supabase for authentication, Postgres database, Row Level Security, Realtime subscriptions, and storage."
+---
+
+Supabase is the backbone of LASUMedScreen, providing authentication, a managed Postgres database, real-time subscriptions, and file storage — all in one platform. This page explains how each Supabase feature is configured and used.
+
+## Project Setup
+
+Follow these steps to connect your Supabase project to LASUMedScreen:
+
+1. Go to [supabase.com](https://supabase.com) and create a new project.
+2. Once the project is provisioned, navigate to **Settings → API**.
+3. Copy the **Project URL** and the **anon public** key into your `.env.local` file as `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+4. Copy the **service_role** key into `SUPABASE_SERVICE_ROLE_KEY` for server-only usage.
+5. Under **Authentication → Settings**, configure the Site URL and redirect URLs to match your environment.
+
+<Tip>
+  Use separate Supabase projects for development and production. This keeps your data isolated and allows you to run migrations and schema changes safely before promoting them to production.
+</Tip>
+
+## Client Initialization
+
+LASUMedScreen uses `@supabase/ssr` to create Supabase clients that work correctly in both browser and server (Next.js App Router) environments. You need two separate client factories.
+
+```ts lib/supabase/client.ts
+import { createBrowserClient } from '@supabase/ssr'
+import type { Database } from '@/types/database.types'
+
+export function createClient() {
+  return createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
+```
+
+```ts lib/supabase/server.ts
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import type { Database } from '@/types/database.types'
+
+export function createClient() {
+  const cookieStore = cookies()
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+}
+```
+
+Use `createClient` from `lib/supabase/client.ts` in Client Components and `lib/supabase/server.ts` in Server Components, Server Actions, and Route Handlers.
+
+## Authentication
+
+LASUMedScreen uses Supabase Auth for all identity management. The following flows are implemented:
+
+- **Email/password sign up** — students register with their university email address and a password.
+- **Email verification** — Supabase sends a confirmation email on registration. Users must verify their email before accessing the platform.
+- **Sign in** — authenticated via `supabase.auth.signInWithPassword()`.
+- **Password reset** — users request a reset link via `supabase.auth.resetPasswordForEmail()`, which Supabase delivers by email.
+- **Session management** — the session is stored as an HTTP-only cookie via `@supabase/ssr`, making it available to Server Components and middleware without any extra configuration.
+- **Auth state changes** — on the client, you can subscribe to `supabase.auth.onAuthStateChange()` to reactively update UI when the session starts or ends.
+
+For a full walkthrough of the sign-up, sign-in, and session middleware implementation, see the [Authentication](/docs/backend/authentication) page.
+
+## Database Queries
+
+All database access goes through the typed Supabase client. The generated `Database` type (from `@/types/database.types`) provides full type safety on every query.
+
+```ts
+// Fetch student's screenings
+const { data, error } = await supabase
+  .from('screenings')
+  .select('id, status, created_at')
+  .eq('student_id', userId)
+  .order('created_at', { ascending: false })
+
+// Insert new screening
+const { data, error } = await supabase
+  .from('screenings')
+  .insert({ student_id: userId, status: 'pending', form_data: formData })
+  .select()
+  .single()
+```
+
+Always check the `error` object before using `data`. Supabase never throws on query errors — it returns them in the result tuple instead.
+
+## Row Level Security
+
+Row Level Security (RLS) is the primary access control mechanism in LASUMedScreen. Every table in the database has RLS enabled, meaning no row is readable or writable unless an explicit policy permits it.
+
+Policies are scoped to two roles:
+
+- **Students** — can read and write only their own rows, identified by matching `auth.uid()` against a `student_id` or `user_id` column.
+- **Admins** — have broader access granted via a role check against the `profiles` table or a custom claim in the JWT.
+
+Because RLS is enforced at the database level, it protects your data even if a bug in your application code constructs an incorrect query. For the full list of tables, columns, and policy definitions, refer to the Database Schema page.
+
+<Warning>
+  Never use the Supabase service role key in client-side code. It bypasses all RLS policies and has full database access. Keep it strictly in server-side code, Edge Functions, and CI scripts.
+</Warning>
+
+## Realtime Subscriptions
+
+LASUMedScreen uses Supabase Realtime to push live screening status updates to the student dashboard without polling. You subscribe to Postgres changes on the `screenings` table filtered by the current user's ID.
+
+```ts
+const channel = supabase
+  .channel('screening-updates')
+  .on('postgres_changes', {
+    event: '*',
+    schema: 'public',
+    table: 'screenings',
+    filter: `student_id=eq.${userId}`,
+  }, (payload) => {
+    console.log('Screening updated:', payload.new)
+  })
+  .subscribe()
+```
+
+Call `channel.unsubscribe()` in your component's cleanup function (or `useEffect` return) to avoid memory leaks and unnecessary database connections.
+
+## Auth Configuration in Supabase Dashboard
+
+Configure the following settings in your Supabase project under **Authentication → Settings** before going to production:
+
+| Setting | Value |
+|---|---|
+| Site URL | Your production URL |
+| Redirect URLs | `http://localhost:3000/auth/callback, https://yourdomain.com/auth/callback` |
+| Email confirmation | Enabled |
+| Password minimum length | 8 |
+| JWT expiry | 3600 (1 hour) |
+
+Redirect URLs must include every origin that Supabase is allowed to redirect back to after email confirmation or OAuth. Add both your local development URL and your production URL.

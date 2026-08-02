@@ -1,0 +1,78 @@
+---
+title: "Install and Set Up LASUMedScreen Locally"
+sidebarTitle: "Installation"
+description: "Clone LASUMedScreen, install dependencies with pnpm, and prepare your local environment in under 5 minutes."
+---
+
+Getting LASUMedScreen running on your machine takes less than five minutes. By the end of this page you will have a fully functional local instance connected to your Supabase project and ready for development. Make sure you have completed the [Prerequisites](/docs/quickstart/prerequisites) page before continuing.
+
+<Steps>
+  <Step title="Clone the repository">
+    Clone the LASUMedScreen repository to your local machine and navigate into the project directory:
+
+    ```bash Terminal
+    git clone https://github.com/your-org/lasumedscreen.git
+    cd lasumedscreen
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    Install all project dependencies using your preferred package manager. pnpm is recommended for speed and disk efficiency:
+
+    <CodeGroup>
+      ```bash pnpm
+      pnpm install
+      ```
+
+      ```bash npm
+      npm install
+      ```
+
+      ```bash yarn
+      yarn install
+      ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Copy the environment file">
+    Create your local environment file by copying the provided example:
+
+    ```bash Terminal
+    cp .env.example .env.local
+    ```
+
+    This gives you a template with all the variable names already defined. You will fill in the values in the next step.
+  </Step>
+
+  <Step title="Configure environment variables">
+    Open `.env.local` in your editor and fill in your Supabase project URL, anon key, service role key, Resend API key, and app URL. See the [Environment Variables](/docs/quickstart/environment-variables) page for a full reference of every variable and where to find its value.
+  </Step>
+
+  <Step title="Set up the database">
+    Apply the LASUMedScreen schema to your Supabase project. If you have the Supabase CLI installed, push all pending migrations:
+
+    ```bash Terminal
+    npx supabase db push
+    ```
+
+    Alternatively, you can copy the contents of `supabase/schema.sql` and run it directly in the **SQL Editor** inside your Supabase dashboard. See the [Database Schema](/docs/backend/database-schema) page for a full breakdown of every table and relationship.
+  </Step>
+
+  <Step title="Start the development server">
+    Start the Next.js development server with hot module replacement:
+
+    ```bash Terminal
+    pnpm dev
+    ```
+
+    Open [http://localhost:3000](http://localhost:3000) in your browser. You should see the LASUMedScreen login page.
+  </Step>
+</Steps>
+
+<Note>
+  The first run may take 30–60 seconds while Next.js compiles the application for the first time. Subsequent starts are significantly faster thanks to the Next.js incremental compilation cache.
+</Note>
+
+<Warning>
+  Never commit `.env.local` to version control. It contains secret keys — including your Supabase service role key — that would expose your entire database if made public. The `.gitignore` file in the repository already excludes `.env.local`, but double-check before pushing.
+</Warning>

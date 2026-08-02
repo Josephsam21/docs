@@ -1,0 +1,114 @@
+---
+title: "LASUMedScreen Design System: Colors, Typography, and UI Principles"
+sidebarTitle: "Design System"
+description: "LASUMedScreen design system: brand colors, typography scale, spacing, responsive breakpoints, accessibility standards, and UI component principles."
+---
+
+LASUMedScreen's design system is the single source of truth for all visual decisions in the platform. It defines the brand colour palette, the typography scale, the spacing unit, the responsive breakpoints, and the accessibility requirements that every component must meet. By encoding these decisions in Tailwind configuration and shared token files, the system ensures that every page — whether built by the original team or a new contributor — looks and behaves consistently.
+
+## Brand Colors
+
+The colour palette is deliberately small and purposeful. Each token has a primary semantic role so that colours carry meaning across the entire product rather than being applied arbitrarily.
+
+| Token | Value | Usage |
+|---|---|---|
+| Primary | `#ef7025` | CTAs, active nav states, interactive links |
+| Primary Light | `#eec9bc` | Hover backgrounds, tinted section fills |
+| Primary Dark | `#4fa1ab` | Dark mode accents, footer backgrounds |
+| Success | `#22c55e` | Approved status badges, success toast notifications |
+| Warning | `#f59e0b` | Pending status badges, caution alerts |
+| Destructive | `#ef4444` | Rejected status badges, error messages, delete actions |
+| Neutral | `#6b7280` | Secondary body text, input borders, dividers |
+
+All colour tokens are registered in `tailwind.config.ts` so that you reference them as Tailwind utility classes (`bg-primary`, `text-destructive`, `border-neutral`) rather than hardcoded hex values. This makes global palette changes — for example, refreshing the brand colour — a single-file update.
+
+```ts tailwind.config.ts
+import type { Config } from 'tailwindcss'
+
+const config: Config = {
+  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          DEFAULT: '#ef7025',
+          light: '#eec9bc',
+          dark: '#4fa1ab',
+        },
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
+    },
+  },
+}
+export default config
+```
+
+<Note>
+  The `success`, `warning`, `destructive`, and `neutral` tokens map directly to Tailwind's built-in `green-500`, `amber-500`, `red-500`, and `gray-500` scales respectively, so you can use standard Tailwind classes for those without extending the config.
+</Note>
+
+## Typography
+
+LASUMedScreen uses **Inter** as its sole typeface, loaded via `next/font/google` for zero-layout-shift font delivery. The type scale follows a fixed set of pre-approved combinations of `font-size` and `font-weight` so that visual hierarchy is immediately legible across all pages.
+
+| Style | Class | Size | Weight | Use |
+|---|---|---|---|---|
+| Heading 1 | `text-4xl font-bold` | 36px | 700 | Page titles and hero headings |
+| Heading 2 | `text-2xl font-semibold` | 24px | 600 | Section titles within a page |
+| Heading 3 | `text-xl font-semibold` | 20px | 600 | Card titles and sub-section labels |
+| Body | `text-base` | 16px | 400 | Default paragraph and list text |
+| Small | `text-sm` | 14px | 400 | Form labels, helper text, captions |
+| Micro | `text-xs` | 12px | 400 | Badge text, timestamp metadata |
+
+Apply these combinations through the `PageHeader`, `Card`, and other shared components wherever possible rather than reaching for raw Tailwind classes on individual elements — this keeps the hierarchy consistent and makes future scale adjustments easier.
+
+## Responsive Breakpoints
+
+LASUMedScreen is designed mobile-first. Base styles target the smallest viewports, and breakpoint prefixes progressively enhance the layout for larger screens. The platform must remain fully functional on the tablets used in clinic waiting rooms, so the `md:` breakpoint is the most commonly used upgrade point.
+
+| Breakpoint | Screen Width | Tailwind Prefix |
+|---|---|---|
+| Mobile | < 640px | (default, no prefix) |
+| Small | 640px and above | `sm:` |
+| Medium | 768px and above | `md:` |
+| Large | 1024px and above | `lg:` |
+| XL | 1280px and above | `xl:` |
+
+The sidebar collapses to a drawer below `md:`, the screening form steps stack vertically below `sm:`, and the admin screening table switches from a full column layout to a card-based list on mobile.
+
+## Spacing Scale
+
+All spacing in LASUMedScreen follows a **4px base unit**. Every margin, padding, gap, and size value in the codebase is a multiple of 4px, which maps exactly to Tailwind's default numeric scale. The most commonly used values are:
+
+| Tailwind Class | Pixels | Typical Use |
+|---|---|---|
+| `p-1` / `m-1` | 4px | Tight internal padding in badges |
+| `p-2` / `m-2` | 8px | Icon button padding |
+| `p-3` / `m-3` | 12px | Form field internal spacing |
+| `p-4` / `m-4` | 16px | Standard card padding |
+| `p-6` / `m-6` | 24px | Section vertical rhythm |
+| `p-8` / `m-8` | 32px | Page horizontal padding |
+| `p-12` / `m-12` | 48px | Large section gaps |
+| `p-16` / `m-16` | 64px | Hero and landing section spacing |
+
+Never use arbitrary spacing values (e.g., `p-[13px]`) unless you have an exceptional layout constraint. Consistent multiples of 4px are what give the UI its sense of rhythm and alignment.
+
+## Accessibility
+
+Accessibility is a first-class requirement in LASUMedScreen, not an afterthought. The platform serves students and medical staff in a university healthcare setting where assistive technology use is expected. Every component must meet the following standards:
+
+- **Visible focus rings** — All interactive elements display a clearly visible focus indicator when navigated to via keyboard. The focus ring uses the `ring-2 ring-primary ring-offset-2` utility combination.
+- **Colour is never the sole state indicator** — Status badges always include an icon and a text label alongside the colour. For example, an approved screening shows a green checkmark icon, the word "Approved", and a green background — never just a green dot.
+- **ARIA labels on icon-only buttons** — Any button that renders only an icon (close, expand, refresh) must include an `aria-label` attribute describing the action.
+- **Screen reader testing** — All interactive flows are manually tested with VoiceOver on macOS/iOS and NVDA on Windows before release.
+- **Contrast ratios** — Normal text meets a minimum contrast ratio of 4.5:1 against its background. Large text (18px+ bold or 24px+) meets a minimum of 3:1. Run `npx axe-cli` against staging to verify before merging.
+
+## Dark Mode
+
+LASUMedScreen supports dark mode using Tailwind's `class` strategy, which toggles dark styles by adding a `dark` class to the `<html>` element. This gives you manual control via a user preference toggle rather than relying solely on the OS `prefers-color-scheme` media query, though the initial value is seeded from the media query on first visit.
+
+Every colour definition in the component layer includes a `dark:` variant. The primary brand colour lightens slightly in dark mode to maintain contrast against dark backgrounds, while success, warning, and destructive colours shift to their 400-level Tailwind equivalents. Background and surface colours invert from near-white to near-black using the `bg-white dark:bg-gray-900` and `bg-gray-50 dark:bg-gray-800` patterns.
+
+The user's preference is persisted in `localStorage` under the key `lasumedscreen-theme` and re-applied on page load via an inline script in `app/layout.tsx` to prevent a flash of unstyled content.

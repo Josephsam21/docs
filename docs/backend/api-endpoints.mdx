@@ -1,0 +1,256 @@
+---
+title: "LASUMedScreen REST API Endpoints Reference"
+sidebarTitle: "API Endpoints"
+description: "Complete reference for all LASUMedScreen API routes: authentication, screening submissions, clearance management, and admin operations."
+---
+
+All LASUMedScreen API routes live under `/api/` and are implemented as Next.js Route Handlers. Every protected route requires a valid Supabase session cookie. The base URL is your deployment URL (e.g., `https://your-app.vercel.app`).
+
+## Authentication
+
+All protected routes read the session from the `sb-auth-token` cookie set by Supabase Auth. When making requests from the browser, the Supabase client SDK handles cookie transmission automatically. For server-to-server requests, include the cookie header manually or use the Supabase service role key in a trusted server environment.
+
+<Note>
+  You do not need to pass a Bearer token manually when using the Supabase JS
+  client — it reads the session cookie on every request.
+</Note>
+
+## Authentication Endpoints
+
+### `POST /api/auth/register`
+
+Registers a new student account. On success, Supabase Auth creates the user and a database trigger creates the corresponding `profiles` row.
+
+**Request Body:**
+
+```json
+{
+  "email": "student@uni.edu.ng",
+  "password": "SecurePassword123!",
+  "fullName": "John Doe",
+  "studentId": "CSC/2021/001",
+  "department": "Computer Science",
+  "level": "300"
+}
+```
+
+**Success Response (201):**
+
+```json
+{
+  "user": {
+    "id": "uuid",
+    "email": "student@uni.edu.ng",
+    "user_metadata": { "role": "student", "fullName": "John Doe" }
+  },
+  "session": { "access_token": "...", "expires_at": 1234567890 }
+}
+```
+
+**Error Responses:** `400` (validation failed), `409` (email already exists), `500` (server error)
+
+---
+
+### `POST /api/auth/login`
+
+Authenticates a student or admin and sets the session cookie.
+
+**Request Body:**
+
+```json
+{ "email": "student@uni.edu.ng", "password": "SecurePassword123!" }
+```
+
+**Success Response (200):**
+
+```json
+{ "user": { "..." : "..." }, "session": { "..." : "..." } }
+```
+
+**Error Responses:** `400` (invalid credentials), `401` (email not confirmed)
+
+---
+
+### `POST /api/auth/logout`
+
+Clears the session cookie and invalidates the current session server-side. Returns `200` on success with no body.
+
+---
+
+### `GET /api/auth/session`
+
+Returns the currently authenticated user and session metadata. Returns `401` if no valid session is found.
+
+---
+
+## Screening Endpoints
+
+### `POST /api/screenings`
+
+Submits a new medical screening form on behalf of the authenticated student. Requires the `student` role.
+
+<ParamField body="fullName" type="string" required>
+  The student's full name as it appears on their university record.
+</ParamField>
+
+<ParamField body="studentId" type="string" required>
+  Formatted student ID (e.g., `CSC/2021/001`).
+</ParamField>
+
+<ParamField body="department" type="string" required>
+  The student's department name.
+</ParamField>
+
+<ParamField body="level" type="string" required>
+  Academic level. Accepted values: `100`, `200`, `300`, `400`, `500`.
+</ParamField>
+
+<ParamField body="hasChronicCondition" type="boolean" required>
+  Whether the student has a known chronic medical condition.
+</ParamField>
+
+<ParamField body="chronicConditionDetails" type="string">
+  Detailed description of the chronic condition. Required when `hasChronicCondition` is `true`.
+</ParamField>
+
+<ParamField body="allergies" type="string">
+  A description of any known allergies. Leave empty if none.
+</ParamField>
+
+<ParamField body="height" type="number" required>
+  Student's height in centimetres.
+</ParamField>
+
+<ParamField body="weight" type="number" required>
+  Student's weight in kilograms.
+</ParamField>
+
+<ParamField body="bloodGroup" type="string" required>
+  Blood group. Accepted values: `A+`, `A-`, `B+`, `B-`, `AB+`, `AB-`, `O+`, `O-`.
+</ParamField>
+
+**Success Response (201):**
+
+```json
+{
+  "id": "uuid",
+  "student_id": "uuid",
+  "status": "pending",
+  "created_at": "2024-01-15T10:30:00Z"
+}
+```
+
+---
+
+### `GET /api/screenings/:id`
+
+Retrieves a specific screening record by its UUID. Students can only access their own screenings. Admins can access any screening.
+
+**Success Response (200):**
+
+```json
+{
+  "id": "uuid",
+  "student_id": "uuid",
+  "status": "pending",
+  "form_data": { "...": "..." },
+  "staff_notes": null,
+  "reviewed_by": null,
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-15T10:30:00Z"
+}
+```
+
+**Error Responses:** `403` (access denied), `404` (screening not found)
+
+---
+
+### `PATCH /api/screenings/:id/status`
+
+Updates the status of a screening submission. Requires the `admin` role. On approval, a clearance record is created automatically.
+
+**Request Body:**
+
+```json
+{ "status": "approved", "staff_notes": "All vitals within normal range." }
+```
+
+**Accepted status values:** `approved`, `rejected`
+
+---
+
+## Student Endpoints
+
+### `GET /api/students/:id/clearance`
+
+Returns the clearance status for a given student. Students can only retrieve their own clearance. Admins may query any student.
+
+**Success Response (200):**
+
+```json
+{
+  "student_id": "uuid",
+  "clearance_status": "cleared",
+  "cleared_at": "2024-01-16T09:00:00Z",
+  "valid_until": "2025-01-16T09:00:00Z",
+  "certificate_url": "https://..."
+}
+```
+
+---
+
+## Admin Endpoints
+
+### `GET /api/admin/screenings`
+
+Returns a paginated list of all screening submissions with optional status filtering. Requires the `admin` role.
+
+**Query Parameters:**
+
+<ParamField query="status" type="string">
+  Filter results by screening status. Accepted values: `pending`, `approved`, `rejected`.
+</ParamField>
+
+<ParamField query="page" type="number">
+  Page number to retrieve. Defaults to `1`.
+</ParamField>
+
+<ParamField query="limit" type="number">
+  Number of items per page. Defaults to `20`, maximum `100`.
+</ParamField>
+
+**Success Response (200):**
+
+```json
+{
+  "data": [{ "...": "..." }],
+  "count": 150,
+  "page": 1,
+  "limit": 20
+}
+```
+
+---
+
+### `PATCH /api/admin/screenings/:id/approve`
+
+Approves a specific screening and triggers the clearance creation flow, including sending the clearance certificate email to the student. Requires the `admin` role.
+
+---
+
+## Error Response Format
+
+All error responses use a consistent envelope so your client code can handle them uniformly.
+
+```json
+{ "error": { "code": "NOT_FOUND", "message": "Screening not found" } }
+```
+
+| HTTP Status | Code           | Meaning                              |
+| ----------- | -------------- | ------------------------------------ |
+| 400         | `BAD_REQUEST`  | Validation failed or malformed input |
+| 401         | `UNAUTHORIZED` | No valid session cookie found        |
+| 403         | `FORBIDDEN`    | Authenticated but insufficient role  |
+| 404         | `NOT_FOUND`    | Requested resource does not exist    |
+| 409         | `CONFLICT`     | Duplicate resource (e.g. email)      |
+| 500         | `SERVER_ERROR` | Unexpected internal server error     |

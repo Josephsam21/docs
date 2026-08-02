@@ -1,0 +1,107 @@
+---
+title: "Run LASUMedScreen in Local Development Mode"
+sidebarTitle: "Run Locally"
+description: "Start LASUMedScreen locally with hot reload, connect to Supabase, and verify the full development workflow is working."
+---
+
+Once you have installed dependencies and configured your environment variables, you are ready to run LASUMedScreen on your local machine. This page covers starting the dev server, working with a local Supabase instance, and the full set of scripts available to you during development.
+
+## Start the Dev Server
+
+Run the following command from the project root:
+
+```bash Terminal
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser. You should see the LASUMedScreen login page. Any change you save to a source file is reflected in the browser instantly without a full page reload.
+
+## What Runs on Startup
+
+When you run `pnpm dev`, the following processes start automatically in a single terminal session:
+
+- **Next.js dev server** with hot module replacement — UI changes appear in the browser without losing component state.
+- **TypeScript compiler in watch mode** — type errors are surfaced in your terminal and browser overlay as you edit files.
+- **Tailwind CSS JIT compiler** — utility classes are generated on demand, keeping your CSS bundle minimal during development.
+- **Connection to your remote Supabase project** — all database queries, auth flows, and storage operations hit the Supabase project defined by your `NEXT_PUBLIC_SUPABASE_URL`. If you prefer a fully offline setup, see the section below.
+
+## Using Local Supabase
+
+You can run a complete Supabase stack locally using Docker. This gives you a dedicated development database that is isolated from your remote project.
+
+First, make sure [Docker Desktop](https://www.docker.com/products/docker-desktop) is running on your machine, then start the local Supabase services:
+
+```bash Terminal
+supabase start
+```
+
+Supabase will pull the required Docker images and start a local instance. When it finishes, it prints a set of local credentials that look like this:
+
+```bash Terminal
+API URL: http://localhost:54321
+DB URL: postgresql://postgres:postgres@localhost:54322/postgres
+Studio URL: http://localhost:54323
+Anon key: eyJhbGci...
+Service role key: eyJhbGci...
+```
+
+Update your `.env.local` file to use these local values instead of your remote project credentials:
+
+```bash .env.local
+NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<local-anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<local-service-role-key>
+```
+
+You can also open Supabase Studio at [http://localhost:54323](http://localhost:54323) to browse tables, run SQL queries, and inspect authentication events — all without leaving your local environment.
+
+## Useful Dev Scripts
+
+The `package.json` includes a set of scripts for the most common development tasks:
+
+| Script | Command | Purpose |
+|---|---|---|
+| Development | `pnpm dev` | Start the Next.js dev server with hot reload |
+| Type check | `pnpm type-check` | Run the TypeScript compiler without emitting output |
+| Lint | `pnpm lint` | Run ESLint across all source files |
+| Format | `pnpm format` | Run Prettier and rewrite files in place |
+| Build | `pnpm build` | Compile a production-optimised build |
+| Start prod | `pnpm start` | Serve a previously compiled production build |
+
+<Tip>
+  Run `pnpm type-check` in a separate terminal window while you develop. Because the Next.js dev server does not block on type errors, running the TypeScript compiler in parallel ensures you catch mistakes in real time rather than discovering them at build time.
+</Tip>
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Port 3000 is already in use">
+    Another process on your machine is occupying port 3000. Start the dev server on a different port by passing the `--port` flag:
+
+    ```bash Terminal
+    pnpm dev -- --port 3001
+    ```
+
+    Then open [http://localhost:3001](http://localhost:3001) in your browser. You can also update `NEXT_PUBLIC_APP_URL` in `.env.local` to match the new port so that auth redirect URLs remain correct.
+  </Accordion>
+
+  <Accordion title="Supabase connection errors">
+    If you see errors like `Failed to fetch` or `Invalid API key` on startup, verify that `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in your `.env.local` file match the values shown in **Settings → API** in your Supabase dashboard. Make sure there are no trailing spaces or line-break characters in the values, and restart the dev server after making any changes.
+  </Accordion>
+
+  <Accordion title="Module not found errors">
+    If the compiler reports that a module cannot be found, your `node_modules` directory may be incomplete or out of date. Stop the dev server, reinstall dependencies, and restart:
+
+    ```bash Terminal
+    pnpm install
+    pnpm dev
+    ```
+
+    If the error persists after reinstalling, delete the `.next` cache directory and try again:
+
+    ```bash Terminal
+    rm -rf .next
+    pnpm dev
+    ```
+  </Accordion>
+</AccordionGroup>

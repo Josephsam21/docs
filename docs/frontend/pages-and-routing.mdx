@@ -1,0 +1,96 @@
+---
+title: "Pages, Routing, and Middleware in LASUMedScreen"
+sidebarTitle: "Pages & Routing"
+description: "How LASUMedScreen uses Next.js 15 App Router: route groups, layouts, middleware for auth guards, and the full page inventory."
+---
+
+LASUMedScreen is built on the Next.js 15 App Router, which organises your application into a file-system-based routing model where folders define URL segments and special files like `page.tsx`, `layout.tsx`, and `middleware.ts` control rendering, shared UI, and request interception. Understanding the route structure is the foundation for extending the platform — whether you are adding a new student-facing page, a new admin tool, or a new authentication flow.
+
+## App Router Structure
+
+LASUMedScreen uses **route groups** to separate public and protected areas of the application without changing the URL shape. A route group is a folder whose name is wrapped in parentheses; Next.js strips the parentheses entirely when resolving URLs, so they exist purely as an organisational and layout-sharing mechanism.
+
+The project uses two top-level route groups:
+
+- **`(auth)`** — Contains all public routes that are accessible without an active session. Pages in this group share an authentication-specific layout (centred card, no navigation). Any visitor — authenticated or not — can technically reach these URLs, though the middleware redirects already-authenticated users away from them.
+
+- **`(dashboard)`** — Contains all protected routes that require a valid Supabase session before rendering. Pages inside this group share the dashboard layout, which includes the sidebar navigation, breadcrumbs, and user menu. An unauthenticated request to any route inside this group is caught by middleware and redirected to `/login`.
+
+Because route groups do not affect URLs, a file at `app/(dashboard)/student/dashboard/page.tsx` resolves to `/student/dashboard` — the `(dashboard)` segment is invisible to the browser.
+
+## Page Inventory
+
+The table below lists every page in the application, the file that renders it, the access level required, and a short description of its purpose.
+
+| Route | File | Access | Description |
+|---|---|---|---|
+| `/` | `app/page.tsx` | Public | Landing page or smart redirect based on session |
+| `/login` | `app/(auth)/login/page.tsx` | Public | Email and password login form |
+| `/register` | `app/(auth)/register/page.tsx` | Public | Student self-registration form |
+| `/student/dashboard` | `app/(dashboard)/student/dashboard/page.tsx` | Student | Screening status overview and quick actions |
+| `/student/screening/new` | `app/(dashboard)/student/screening/new/page.tsx` | Student | Multi-step new screening submission form |
+| `/student/screening/[id]` | `app/(dashboard)/student/screening/[id]/page.tsx` | Student | View the details of a previously submitted screening |
+| `/student/clearance` | `app/(dashboard)/student/clearance/page.tsx` | Student | Download or view the medical clearance certificate |
+| `/admin/dashboard` | `app/(dashboard)/admin/dashboard/page.tsx` | Admin | Platform-wide overview and key metrics |
+| `/admin/screenings` | `app/(dashboard)/admin/screenings/page.tsx` | Admin | Paginated list of all screening submissions |
+| `/admin/screenings/[id]` | `app/(dashboard)/admin/screenings/[id]/page.tsx` | Admin | Review and act on an individual screening submission |
+| `/admin/students` | `app/(dashboard)/admin/students/page.tsx` | Admin | Student account management and search |
+
+Dynamic segments — `[id]` in the table above — are resolved at request time. You access the segment value through the `params` prop in the page component: `{ params: { id: string } }`.
+
+## Middleware
+
+The `middleware.ts` file at the project root runs on every request before it reaches a page or API route. LASUMedScreen uses middleware as the primary auth guard, inspecting the Supabase session cookie and redirecting requests that do not meet the access requirements for the requested route.
+
+```ts middleware.ts
+import { createMiddlewareClient } from '@/lib/supabase/middleware'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+
+export async function middleware(request: NextRequest) {
+  const { supabase, response } = createMiddlewareClient(request)
+  const { data: { session } } = await supabase.auth.getSession()
+
+  // Redirect unauthenticated users to login
+  if (!session && request.nextUrl.pathname.startsWith('/student')) {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+  if (!session && request.nextUrl.pathname.startsWith('/admin')) {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  // Redirect authenticated users away from auth pages
+  if (session && request.nextUrl.pathname.startsWith('/login')) {
+    const role = session.user.user_metadata?.role
+    return NextResponse.redirect(new URL(`/${role}/dashboard`, request.url))
+  }
+
+  return response
+}
+
+export const config = {
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+}
+```
+
+The `matcher` pattern excludes Next.js internals, static assets, and API routes from middleware execution so that only navigable page requests are intercepted. The `createMiddlewareClient` helper from `@/lib/supabase/middleware` creates a Supabase client that reads and refreshes the session cookie in a middleware-compatible way, ensuring the session is always fresh when checked.
+
+<Note>
+  The role-based redirect after login (`/${role}/dashboard`) relies on the `role` field stored in `user_metadata` at registration time. Make sure your registration flow writes this value correctly — see the [Authentication guide](/docs/backend/authentication) for details.
+</Note>
+
+## Layouts
+
+Next.js layouts wrap every page within their subtree and persist across navigations without unmounting. LASUMedScreen defines three layouts:
+
+- **Root layout (`app/layout.tsx`)** — The top-level layout that wraps the entire application. It registers global CSS, sets the `<html>` and `<body>` tags, and mounts global providers including the Supabase session provider and the toast notification system.
+
+- **Auth layout (`app/(auth)/layout.tsx`)** — Wraps all pages in the `(auth)` group. It renders a centred card container with the LASUMedScreen logo and a clean background, providing a focused login and registration experience with no navigation chrome.
+
+- **Dashboard layout (`app/(dashboard)/layout.tsx`)** — Wraps all pages in the `(dashboard)` group. It renders the full application shell: a collapsible sidebar on the left, a top bar with the user menu and notifications on the right, breadcrumb navigation below the top bar, and the page content area in the centre. This layout is rendered as a Server Component but mounts several client islands for interactive elements.
+
+## Navigation
+
+The sidebar navigation is rendered as a client component so that it can respond to the current user's session and role. On mount, it reads the user's `role` field from the Supabase auth context and filters the navigation link list to show only the routes relevant to that role — students see their screening and clearance links, while admins see the student management and review tools.
+
+The active link is highlighted using Next.js's `usePathname()` hook, which returns the current URL path and lets the sidebar compare it against each link's `href` to apply the active style. When the viewport is narrow, the sidebar collapses to an icon-only rail and expands on hover or tap, preserving usability on tablets used in clinic environments.

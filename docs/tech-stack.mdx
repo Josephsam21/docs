@@ -1,0 +1,90 @@
+---
+title: "LASUMedScreen Technology Stack and Design Rationale"
+sidebarTitle: "Tech Stack"
+description: "Understand why each technology in LASUMedScreen was chosen: Next.js 15, React 19, TypeScript, Tailwind CSS, Supabase, Resend, and Supabase Edge Functions."
+---
+
+Every technology in LASUMedScreen was chosen deliberately. This page explains the role each tool plays in the stack, the reasoning behind selecting it over common alternatives, and where you will encounter it as you work through the codebase. Understanding these decisions will help you contribute more effectively and make informed choices when you need to extend or replace a part of the system.
+
+<AccordionGroup>
+  <Accordion title="Next.js 15" icon="n">
+    **Role:** Full-stack React framework
+
+    Next.js 15 serves as the foundation of the entire application. The App Router with React Server Components lets you co-locate server-side data fetching directly inside page and layout components, eliminating the need for a separate API layer for most read operations. Middleware intercepts requests at the edge to enforce authentication and role-based route protection before a page ever renders. Built-in API Route Handlers cover the few cases that require a dedicated HTTP endpoint, so you never need to spin up a separate Express or Fastify server. Incremental Static Regeneration (ISR) keeps public-facing pages fast without sacrificing freshness. The entire stack deploys to Vercel with zero configuration.
+
+    ```tsx app/dashboard/page.tsx
+    import { createClient } from '@/lib/supabase/server'
+
+    export default async function DashboardPage() {
+      const supabase = createClient()
+      const { data: screenings } = await supabase
+        .from('screenings')
+        .select('*')
+      return <ScreeningList screenings={screenings} />
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="React 19" icon="react">
+    **Role:** UI component library
+
+    React 19 is the rendering engine for every page and interactive element in LASUMedScreen. The new `use()` hook simplifies asynchronous data fetching inside components without the boilerplate of `useEffect`. Improved Server Components reduce the JavaScript shipped to the browser by keeping data-fetching logic on the server. The Actions API provides a first-class pattern for handling form submissions — including the multi-step medical screening form — with progressive enhancement built in. Concurrent rendering keeps the UI responsive even when processing large submission lists in the staff dashboard.
+  </Accordion>
+
+  <Accordion title="TypeScript" icon="code">
+    **Role:** Static typing across the entire codebase
+
+    TypeScript is enabled for every file in the project. It catches type mismatches and missing fields at compile time rather than at runtime in production. Supabase CLI generates accurate TypeScript types directly from your database schema, which means your editor will autocomplete column names and flag incorrect query shapes before you run the code. Strong types also enforce the contract between your API Route Handlers and the client components that consume them, and they make large-scale refactoring dramatically safer.
+
+    ```ts lib/database.types.ts
+    export type Database = {
+      public: {
+        Tables: {
+          screenings: {
+            Row: { id: string; student_id: string; status: 'pending' | 'approved' | 'rejected'; created_at: string }
+            Insert: { student_id: string; status?: 'pending' | 'approved' | 'rejected' }
+            Update: { status?: 'pending' | 'approved' | 'rejected' }
+          }
+        }
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Tailwind CSS" icon="palette">
+    **Role:** Utility-first CSS framework
+
+    Tailwind CSS powers all styling in LASUMedScreen. Writing utility classes directly in JSX removes the context-switching overhead of maintaining separate stylesheet files and eliminates the class-naming problem entirely. Tailwind's design token system — spacing scale, colour palette, typography — ensures visual consistency across every component without a bespoke design system. At build time, unused utility classes are tree-shaken out of the final CSS bundle, keeping stylesheet size minimal. Dark mode is handled through the `dark:` variant prefix, and the responsive prefix utilities (`sm:`, `md:`, `lg:`) make building the mobile-first UI straightforward.
+  </Accordion>
+
+  <Accordion title="Supabase" icon="database">
+    **Role:** Backend-as-a-Service (Auth + Database + Realtime + Storage)
+
+    Supabase replaces what would otherwise be a separate authentication service, a managed Postgres host, a WebSocket server, and a file storage provider. All four are available through a single SDK and a single dashboard. Row Level Security policies are written in SQL and enforced by Postgres itself, meaning no amount of client-side or server-side logic can accidentally expose one student's data to another. Supabase Auth supports email/password login, magic links, and OAuth providers out of the box. The Realtime service streams database change events to subscribed clients, which is how the student dashboard reflects clearance decisions without a page refresh. The free tier is sufficient for development and small production deployments.
+  </Accordion>
+
+  <Accordion title="Resend" icon="envelope">
+    **Role:** Transactional email delivery
+
+    Resend handles every outbound email the platform sends: account verification, clearance approval confirmations, rejection notices, and admin alerts. Its developer-first API accepts React components as email templates, so you write and preview email layouts using the same tooling as the rest of the UI. Delivery reliability, bounce handling, and open tracking are managed by Resend's infrastructure. The SDK is minimal — a single `resend.emails.send()` call is all you need — which keeps the email integration easy to understand and maintain.
+  </Accordion>
+
+  <Accordion title="Supabase Edge Functions" icon="bolt">
+    **Role:** Serverless compute for business logic
+
+    Supabase Edge Functions run on Deno Deploy's globally distributed network, which means your server-side business logic executes close to the user regardless of geography. Functions are written in TypeScript and can be triggered by HTTP requests or by Supabase database webhooks. In LASUMedScreen, Edge Functions handle post-submission processing — such as dispatching the confirmation email via Resend and updating aggregate screening statistics — without blocking the UI or adding latency to the form submission response. Because they run at the edge rather than in a single-region server, cold start times are negligible.
+  </Accordion>
+</AccordionGroup>
+
+## Stack Overview
+
+| Layer | Technology | Version |
+|---|---|---|
+| Framework | Next.js | 15.x |
+| UI Library | React | 19.x |
+| Language | TypeScript | 5.x |
+| Styling | Tailwind CSS | 3.x |
+| Backend/Auth/DB | Supabase | Latest |
+| Email | Resend | Latest |
+| Runtime | Node.js | 20+ |
+| Deployment | Vercel | - |

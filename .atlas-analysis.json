@@ -1,19 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "LASUMedScreen",
+  "projectType": "saas",
+  "projectName": "LASUMedScreen",
+  "projectDescription": "A modern student medical screening and clearance platform built with Next.js 15, React 19, TypeScript, Tailwind CSS, Supabase, and Resend Email.",
   "theme": "luma",
-  "favicon": "/favicon.svg",
-  "colors": {
-    "primary": "#ef7025",
-    "light": "#eec9bc",
-    "dark": "#4fa1ab"
-  },
-  "navbar": {
-    "primary": {
-      "type": "github",
-      "href": "https://github.com/jj-copys/lasumedscreen"
-    }
-  },
+  "primaryColor": "#ef7025",
+  "lightColor": "#eec9bc",
+  "darkColor": "#4fa1ab",
   "navigation": {
     "tabs": [
       {
@@ -104,5 +96,32 @@
         ]
       }
     ]
-  }
+  },
+  "keyFeatures": [
+    "Student medical screening workflow with multi-step form submissions",
+    "Medical clearance management and approval system",
+    "Supabase-powered authentication with role-based access control",
+    "Row Level Security (RLS) for student and staff data isolation",
+    "Automated email notifications via Resend Email",
+    "Edge Functions for server-side business logic",
+    "Real-time status updates using Supabase Realtime",
+    "Responsive, accessible UI built with Tailwind CSS",
+    "TypeScript-first codebase for end-to-end type safety",
+    "Production-ready Next.js 15 App Router architecture"
+  ],
+  "publicApiSurface": [
+    "POST /api/auth/register",
+    "POST /api/auth/login",
+    "GET /api/auth/session",
+    "POST /api/screenings",
+    "GET /api/screenings/:id",
+    "PATCH /api/screenings/:id/status",
+    "GET /api/students/:id/clearance",
+    "POST /api/notifications/send",
+    "GET /api/admin/screenings",
+    "PATCH /api/admin/screenings/:id/approve",
+    "Supabase Edge Function: on-screening-submitted",
+    "Supabase Edge Function: send-clearance-email",
+    "Supabase Edge Function: notify-admin"
+  ]
 }

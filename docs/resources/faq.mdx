@@ -1,0 +1,246 @@
+---
+title: "LASUMedScreen Frequently Asked Questions"
+sidebarTitle: "FAQ"
+description: "Answers to the most common questions about LASUMedScreen: deployment, customization, scaling, security, and extending the platform."
+---
+
+This FAQ answers the most common questions from developers deploying, customizing, and extending LASUMedScreen. If your question is not covered here, check the Troubleshooting page or open a discussion on the project repository.
+
+## General
+
+<AccordionGroup>
+  <Accordion title="Can I use LASUMedScreen for a university other than LASU?">
+    Yes. LASUMedScreen is not hard-coded to a single institution at the infrastructure level. To adapt it for another university:
+
+    1. Set the `NEXT_PUBLIC_APP_NAME` environment variable to your institution's name — it is used in the page title, email subject lines, and header branding.
+    2. Replace LASU-specific copy in the UI components (landing page headline, footer text, etc.).
+    3. Update the student ID validation regex in `lib/validations/screening.ts` to match your institution's ID format. For example:
+       ```ts lib/validations/screening.ts
+       // Replace the LASU pattern with your institution's format
+       const studentIdSchema = z
+         .string()
+         .regex(/^YOUR-ID-PATTERN$/, "Invalid student ID format");
+       ```
+    4. Replace the logo assets in `public/` with your institution's branding.
+  </Accordion>
+
+  <Accordion title="What happens if Supabase goes down?">
+    LASUMedScreen depends on Supabase for authentication, the database, Realtime subscriptions, and Edge Functions. If Supabase experiences an outage, the application will show error states — users will not be able to log in or submit screenings, and in-app notifications will stop updating.
+
+    To reduce the impact of downtime:
+    - Monitor Supabase status at [status.supabase.com](https://status.supabase.com).
+    - Set up uptime monitoring for your application URL (e.g., via Vercel Analytics or an external monitor like UptimeRobot).
+    - For production deployments serving many users, consider upgrading to Supabase's **Pro plan**, which comes with enhanced SLAs and priority support.
+  </Accordion>
+
+  <Accordion title="Does LASUMedScreen support multiple universities?">
+    Not natively. The current schema is **single-tenant** — all data belongs to one institution and there is no concept of an institution boundary in the database.
+
+    To add multi-tenancy support:
+    1. Add an `institution_id` UUID column to all relevant tables (`profiles`, `screenings`, `notifications`).
+    2. Update all RLS policies to scope reads and writes by both `auth.uid()` and `institution_id`.
+    3. Add an `institutions` table to store institution-level configuration (name, logo URL, ID format).
+    4. Update the onboarding and registration flow to assign a user to an institution at sign-up.
+
+    See the Future Improvements page for the full multi-tenancy roadmap.
+  </Accordion>
+</AccordionGroup>
+
+## Authentication & Security
+
+<AccordionGroup>
+  <Accordion title="How do I create the first admin account?">
+    The registration flow creates all new users with the `student` role by default. To promote a user to `admin`:
+
+    1. Register a normal account with the email address you want to use for administration.
+    2. Open the **Supabase Dashboard → SQL Editor** and run:
+       ```sql
+       UPDATE profiles
+       SET role = 'admin'
+       WHERE email = 'admin@yourdomain.com';
+       ```
+    3. Sign out and sign back in. The middleware will now redirect this user to `/admin` instead of `/dashboard`.
+
+    <Warning>
+      Keep the number of admin accounts to a minimum. Admin users bypass many of the student-specific RLS restrictions and have read access to all screening submissions.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="Can students see each other's medical data?">
+    No. Supabase Row Level Security (RLS) policies are applied at the database level and prevent any student from reading, updating, or deleting a row that does not belong to them. A typical read policy on the `screenings` table looks like this:
+
+    ```sql
+    -- Students can only read their own screening record
+    CREATE POLICY "Students can read own screening"
+    ON screenings
+    FOR SELECT
+    TO authenticated
+    USING (student_id = auth.uid());
+    ```
+
+    This restriction is enforced by Postgres itself — it cannot be bypassed by modifying application code or crafting raw API requests.
+  </Accordion>
+
+  <Accordion title="Is the data encrypted at rest?">
+    Yes. Supabase Postgres encrypts all data at rest using **AES-256** encryption managed by the underlying cloud infrastructure (AWS or Fly.io depending on the region). Data in transit between the client, the Next.js server, and Supabase is protected by **TLS 1.2+**.
+
+    For additional data protection:
+    - Avoid storing plaintext sensitive fields (e.g., national ID numbers) directly in columns — consider encrypting them at the application layer before insert.
+    - Enable **Point-in-Time Recovery** on the Supabase Pro plan to protect against accidental data loss.
+  </Accordion>
+
+  <Accordion title="Can I enable SSO or LDAP for university credentials?">
+    Yes, with a Supabase upgrade. Supabase Auth supports **SAML 2.0 SSO** on the Pro and Enterprise plans. This would allow students and staff to authenticate using their existing university credentials (Microsoft Entra ID, Google Workspace, etc.) without creating a separate password.
+
+    To enable SSO:
+    1. Upgrade to Supabase Pro.
+    2. Go to **Authentication → SSO Providers** and configure your identity provider.
+    3. Update the login page to offer the SSO option alongside email/password.
+
+    LDAP is not natively supported by Supabase Auth but can be bridged via a SAML-capable identity provider. See the Future Improvements page for more context.
+  </Accordion>
+</AccordionGroup>
+
+## Customization
+
+<AccordionGroup>
+  <Accordion title="How do I add new fields to the screening form?">
+    Adding a field touches four areas of the codebase. Follow these steps in order to keep types and the UI consistent:
+
+    1. **Update the Zod schema** in `lib/validations/screening.ts` to include the new field:
+       ```ts lib/validations/screening.ts
+       export const screeningFormSchema = z.object({
+         // ... existing fields
+         bloodPressure: z.string().min(1, "Blood pressure is required"),
+       });
+       ```
+    2. **Update the database.** If the field warrants its own column, add it to the `screenings` table via a migration. For flexible fields, append to the existing `form_data` jsonb column instead.
+    3. **Add the form input** to the appropriate `ScreeningFormStep` component in `components/screening/`. Match the `name` prop to the Zod schema key.
+    4. **Update the admin review view** in `app/admin/screenings/[id]/page.tsx` to display the new field in the submission detail panel.
+    5. **Regenerate TypeScript types** if you added a database column:
+       ```bash
+       supabase gen types typescript \
+         --project-id YOUR_PROJECT_ID \
+         > types/database.types.ts
+       ```
+  </Accordion>
+
+  <Accordion title="How do I change the brand colors?">
+    All primary color values are defined as CSS custom properties and referenced through Tailwind. To update the brand:
+
+    1. Open `tailwind.config.ts` and update the `primary` color in the `theme.extend.colors` block:
+       ```ts tailwind.config.ts
+       theme: {
+         extend: {
+           colors: {
+             primary: {
+               DEFAULT: "#YOUR_NEW_HEX",
+               foreground: "#ffffff",
+             },
+           },
+         },
+       },
+       ```
+    2. Find and replace the hardcoded `#ef7025` references in `app/globals.css` (used in CSS variable definitions) with your new primary color value.
+    3. Restart the dev server to see the updated colors applied across all components.
+  </Accordion>
+
+  <Accordion title="Can I add a new user role, such as nurse or doctor?">
+    Yes. Roles in LASUMedScreen are stored as a `text` column with a check constraint. To add a new role:
+
+    1. **Update the database constraint** via a migration:
+       ```sql
+       ALTER TABLE profiles
+       DROP CONSTRAINT profiles_role_check;
+
+       ALTER TABLE profiles
+       ADD CONSTRAINT profiles_role_check
+       CHECK (role IN ('student', 'admin', 'nurse', 'doctor'));
+       ```
+    2. **Create new RLS policies** scoped to the new role. For example, a nurse might need read access to all screenings but no write access:
+       ```sql
+       CREATE POLICY "Nurses can read all screenings"
+       ON screenings
+       FOR SELECT
+       TO authenticated
+       USING (
+         EXISTS (
+           SELECT 1 FROM profiles
+           WHERE id = auth.uid() AND role = 'nurse'
+         )
+       );
+       ```
+    3. **Update the middleware** in `middleware.ts` to handle routing for the new role — redirect nurses to a `/nurse` dashboard route after sign-in.
+    4. **Build the new dashboard** under `app/nurse/` following the same Server Component pattern as `app/admin/`.
+  </Accordion>
+</AccordionGroup>
+
+## Deployment
+
+<AccordionGroup>
+  <Accordion title="Can I self-host instead of using Vercel?">
+    Yes. LASUMedScreen can run on any host that supports Node.js 20+. A `Dockerfile` is provided in the deployment guide for containerized deployments. Self-hosting with Docker gives you full control over the infrastructure but requires you to manage:
+
+    - **SSL certificates** — use a reverse proxy like Nginx or Caddy with Let's Encrypt.
+    - **Deployments** — build the image and restart the container on each release.
+    - **Uptime** — configure a process manager or orchestration tool (e.g., Docker Compose, Kubernetes) to restart the container on failure.
+
+    The Supabase backend (database, auth, Edge Functions) remains managed regardless of where you host the Next.js app.
+  </Accordion>
+
+  <Accordion title="How do I run database migrations in production?">
+    Use the Supabase CLI to push pending migrations to your production database:
+    ```bash
+    supabase db push --db-url postgresql://postgres:[password]@[host]:5432/postgres
+    ```
+    You can also apply migrations manually through the **Supabase Dashboard → SQL Editor**.
+
+    <Warning>
+      Always back up your production database before running migrations. You can trigger a manual backup from **Supabase Dashboard → Database → Backups** (Pro plan) or export via `pg_dump`.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="How do I update the application after making changes?">
+    The update process depends on your hosting setup:
+
+    - **Vercel (recommended):** Push your changes to the `main` branch. Vercel automatically detects the push, runs the build, and deploys the new version with zero downtime. Preview deployments are created for every pull request.
+    - **Self-hosted Docker:** Rebuild the Docker image with the new code, then restart the container:
+      ```bash
+      docker build -t lasumedscreen:latest .
+      docker stop lasumedscreen && docker rm lasumedscreen
+      docker run -d --name lasumedscreen --env-file .env.production -p 3000:3000 lasumedscreen:latest
+      ```
+    - **Database changes:** Run `supabase db push` separately from the app deployment. Apply database migrations before deploying the new application code that depends on them.
+  </Accordion>
+</AccordionGroup>
+
+## Performance & Scaling
+
+<AccordionGroup>
+  <Accordion title="How many concurrent users can LASUMedScreen handle?">
+    Concurrency is primarily limited by the Supabase database connection pool, not the Next.js application layer (Vercel scales horizontally).
+
+    | Supabase Plan | Max DB Connections | Recommended Concurrent Users |
+    |---|---|---|
+    | Free | ~60 | ~50–100 |
+    | Pro | ~200 | ~300–500 |
+    | Team | ~500 | ~800–1,500 |
+
+    Next.js Server Components and Server Actions use short-lived database connections, so the practical concurrent user capacity is higher than the raw connection limit suggests. For large institutions with peak-time surges (e.g., semester start), upgrade to Supabase Pro and enable **PgBouncer** connection pooling.
+  </Accordion>
+
+  <Accordion title="How do I optimize for large numbers of student submissions?">
+    As the number of screening records grows, keep the following optimizations in place:
+
+    - **Pagination:** All list views (admin screening table, notification list) use cursor-based or offset pagination — this is already implemented and should not be removed.
+    - **Database indexes:** Ensure indexes exist on frequently filtered columns:
+      ```sql
+      CREATE INDEX IF NOT EXISTS idx_screenings_status ON screenings(status);
+      CREATE INDEX IF NOT EXISTS idx_screenings_student_id ON screenings(student_id);
+      CREATE INDEX IF NOT EXISTS idx_screenings_created_at ON screenings(created_at DESC);
+      ```
+    - **Server-side caching:** Use `revalidatePath` or `revalidateTag` to cache the admin screening list and invalidate it only when new submissions arrive, reducing database queries on repeated page loads.
+    - **Connection pooling:** Enable PgBouncer in **Supabase Dashboard → Database → Connection Pooling** and update your `DATABASE_URL` to use the pooler endpoint.
+    - **Upgrade Supabase:** Move to the Pro plan for more database connections and better baseline performance under load.
+  </Accordion>
+</AccordionGroup>

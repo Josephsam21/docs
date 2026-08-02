@@ -1,0 +1,55 @@
+---
+title: "Configure LASUMedScreen Environment Variables"
+sidebarTitle: "Environment Variables"
+description: "Set up all required and optional environment variables for LASUMedScreen including Supabase credentials, Resend API key, and app URL."
+---
+
+LASUMedScreen uses a `.env.local` file for local development and platform environment variables for production. All variables must be set before the app will function correctly — missing or incorrect values will cause authentication failures, broken email delivery, or database connection errors at startup.
+
+## Environment File Template
+
+Copy the block below into your `.env.local` file and replace every placeholder value with your real credentials. You can also regenerate this file at any time by running `cp .env.example .env.local`.
+
+```bash .env.example
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# Resend
+RESEND_API_KEY=re_your_api_key
+RESEND_FROM_EMAIL=noreply@yourdomain.com
+
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_NAME=LASUMedScreen
+```
+
+## Variable Reference
+
+The table below describes every environment variable, whether it is required, what it is used for, and an example value.
+
+| Variable | Required | Description | Example |
+|---|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Your Supabase project URL, found in Settings → API | `https://xyz.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase public anon key used in client-side requests | `eyJhbGci...` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-side admin key with full database access — never expose client-side | `eyJhbGci...` |
+| `RESEND_API_KEY` | Yes | Your Resend API key used to send transactional emails | `re_abc123...` |
+| `RESEND_FROM_EMAIL` | Yes | Verified sending email address shown in the From field | `noreply@uni.edu.ng` |
+| `NEXT_PUBLIC_APP_URL` | Yes | Base URL of the app, used for auth redirects and email links | `http://localhost:3000` |
+| `NEXT_PUBLIC_APP_NAME` | No | Display name used in email templates and page titles | `LASUMedScreen` |
+
+## Where to Find Each Value
+
+- **Supabase URL and Anon Key** — Log in to [supabase.com](https://supabase.com), open your project, and go to **Settings → API**. Both values are listed under **Project API keys**.
+- **Supabase Service Role Key** — On the same **Settings → API** page, scroll down to **Service role key**. Click the eye icon to reveal it.
+- **Resend API Key** — Log in to [resend.com](https://resend.com) and go to **API Keys → Create API Key**.
+- **Resend From Email** — Use any address on a domain you have verified in Resend. For development, `onboarding@resend.dev` works without domain setup.
+
+<Warning>
+  `SUPABASE_SERVICE_ROLE_KEY` bypasses Row Level Security and has full read/write access to your entire database. Never reference this variable in any file prefixed with `NEXT_PUBLIC_`, never log it, and never commit it to Git. Use it only in server-side API routes and Edge Functions.
+</Warning>
+
+<Tip>
+  For production deployments on Vercel, add these variables in the Vercel Dashboard under **Settings → Environment Variables**. Set the environment scope to **Production** for live keys and **Preview** for staging keys so that each deployment receives the correct credentials automatically.
+</Tip>

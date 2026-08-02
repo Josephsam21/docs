@@ -1,0 +1,147 @@
+---
+title: "Supabase Edge Functions in LASUMedScreen"
+sidebarTitle: "Edge Functions"
+description: "How LASUMedScreen uses Supabase Edge Functions for post-submission processing, clearance email delivery, and admin notifications."
+---
+
+LASUMedScreen uses three Supabase Edge Functions for asynchronous, server-side processing. These functions run on Deno at the edge and are triggered either by database webhooks or direct HTTP calls from API routes. Offloading these tasks to Edge Functions keeps your Next.js Route Handlers fast and ensures that email delivery and notification creation happen reliably in the background, even if the user closes their browser after submitting.
+
+## Function Overview
+
+| Function                  | Trigger                                             | Purpose                                                   |
+| ------------------------- | --------------------------------------------------- | --------------------------------------------------------- |
+| `on-screening-submitted`  | DB webhook (`INSERT` on `screenings`)               | Send confirmation email to student, notify admin          |
+| `send-clearance-email`    | DB webhook (`UPDATE` on `clearances` where `status = 'cleared'`) | Send clearance certificate email to student |
+| `notify-admin`            | HTTP (called from API routes)                       | Send a real-time alert to admins for urgent screenings    |
+
+---
+
+## `on-screening-submitted`
+
+This function fires every time a new row is inserted into the `screenings` table. It handles the initial confirmation workflow so the student immediately knows their form was received.
+
+**Triggered by:** Supabase database webhook on `INSERT` to the `screenings` table.
+
+**Webhook payload (input):**
+
+```json
+{
+  "type": "INSERT",
+  "table": "screenings",
+  "record": {
+    "id": "uuid",
+    "student_id": "uuid",
+    "status": "pending",
+    "created_at": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+**Processing steps:**
+
+1. Extract `student_id` from the webhook record.
+2. Fetch the student's `email` and `full_name` from the `profiles` table using the service role client.
+3. Send a confirmation email to the student via Resend.
+4. Insert a `screening_submitted` row into the `notifications` table.
+5. Send an alert email to the configured admin address.
+
+```ts supabase/functions/on-screening-submitted/index.ts
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { Resend } from 'https://esm.sh/resend'
+
+serve(async (req) => {
+  const payload = await req.json()
+  const { record } = payload
+
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  )
+
+  const { data: student } = await supabase
+    .from('profiles')
+    .select('email, full_name')
+    .eq('id', record.student_id)
+    .single()
+
+  const resend = new Resend(Deno.env.get('RESEND_API_KEY'))
+
+  await resend.emails.send({
+    from: Deno.env.get('RESEND_FROM_EMAIL')!,
+    to: student.email,
+    subject: 'Medical Screening Submitted Successfully',
+    html: `<p>Hi ${student.full_name}, your screening has been received and is under review.</p>`,
+  })
+
+  return new Response(JSON.stringify({ success: true }), {
+    headers: { 'Content-Type': 'application/json' },
+  })
+})
+```
+
+---
+
+## `send-clearance-email`
+
+This function fires when a clearance record transitions to `status = 'cleared'`, delivering the student's certificate directly to their inbox.
+
+**Triggered by:** Supabase database webhook on `UPDATE` to the `clearances` table where the new `status` value is `'cleared'`.
+
+**Processing steps:**
+
+1. Extract `student_id` and `screening_id` from the webhook payload.
+2. Fetch the student's `email` and `full_name` from the `profiles` table.
+3. Fetch the full clearance record, including `certificate_url` and `valid_until`.
+4. Send a clearance email to the student containing a direct link to the certificate PDF.
+
+**Error handling:** If the Resend API call fails, the function catches the error and inserts a row into the `notifications` table with `type = 'email_failed'`. The admin dashboard queries unresolved `email_failed` notifications and surfaces them as a banner alert so the team can follow up manually.
+
+---
+
+## `notify-admin`
+
+This function is called over HTTP from Next.js API routes when an event requires immediate admin attention — for example, a screening flagged as urgent due to a reported chronic condition.
+
+**Triggered by:** HTTP `POST` from `/api/admin` route handlers.
+
+**Input:**
+
+```json
+{ "type": "urgent_screening", "screening_id": "uuid", "student_name": "John Doe" }
+```
+
+The function looks up the admin email from environment variables and sends a formatted alert via Resend with a direct link to the screening in the admin dashboard. It also writes a notification row to the `notifications` table so the alert is visible in-app.
+
+---
+
+## Deploying Edge Functions
+
+Deploy each function to your Supabase project using the Supabase CLI. You must set all required secrets before the functions will work correctly in production.
+
+```bash
+# Deploy all functions
+supabase functions deploy on-screening-submitted
+supabase functions deploy send-clearance-email
+supabase functions deploy notify-admin
+
+# Set secrets
+supabase secrets set RESEND_API_KEY=re_your_key
+supabase secrets set RESEND_FROM_EMAIL=noreply@yourdomain.com
+```
+
+After deploying, configure the database webhooks in your Supabase dashboard under **Database → Webhooks**. Point each webhook at the corresponding function URL and select the correct table and event type.
+
+<Warning>
+  Edge Functions use the service role key to bypass RLS. Always validate the
+  webhook signature using the `x-supabase-signature` header to prevent
+  unauthorized invocations from external sources. Supabase provides a helper
+  for signature verification in the Edge Functions runtime.
+</Warning>
+
+<Tip>
+  Test your Edge Functions locally before deploying by running
+  `supabase functions serve` in one terminal and sending test payloads with
+  `curl` in another. Use `supabase db dump` to generate a local webhook
+  payload that matches the exact shape Supabase sends in production.
+</Tip>

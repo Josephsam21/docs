@@ -1,0 +1,136 @@
+---
+title: "Resend Email Integration in LASUMedScreen"
+sidebarTitle: "Resend Email"
+description: "How LASUMedScreen uses Resend for transactional emails: verification, screening confirmation, clearance notifications, and admin alerts."
+---
+
+LASUMedScreen uses Resend for all transactional email delivery. Resend provides a developer-friendly API, React email template support, and reliable delivery with tracking. Every email sent by the platform — from screening confirmations to clearance certificates — flows through Resend.
+
+## Setup
+
+Follow these steps to connect Resend to your LASUMedScreen project:
+
+1. Create a Resend account at [resend.com](https://resend.com).
+2. Navigate to **Domains** and add your sending domain (e.g., `youruniversity.edu.ng`). Follow the DNS verification steps Resend provides.
+3. Once your domain is verified, go to **API Keys** and create a new key with **Full Access** permissions.
+4. Add the following variables to your `.env.local` file:
+   - `RESEND_API_KEY` — the API key you just created.
+   - `RESEND_FROM_EMAIL` — the verified address you will send from (e.g., `noreply@youruniversity.edu.ng`).
+
+## Email Workflows
+
+The table below maps every email trigger in LASUMedScreen to its template, recipient, and sender system:
+
+| Trigger | Template | Recipient | Sent by |
+|---|---|---|---|
+| Student registers | Welcome + verify email | Student | Supabase Auth |
+| Screening submitted | Submission confirmation | Student | Edge Function |
+| Screening submitted | New screening alert | Admin | Edge Function |
+| Screening approved | Approval notification | Student | Edge Function |
+| Screening rejected | Rejection notification | Student | Edge Function |
+| Clearance issued | Clearance certificate | Student | Edge Function |
+| Password reset | Reset link | User | Supabase Auth |
+
+Supabase Auth handles the verification and password reset emails natively. All other emails are sent from Supabase Edge Functions that call Resend after a database event fires.
+
+## Resend Client Setup
+
+Create a shared Resend instance that can be imported by any server-side module or Edge Function:
+
+```ts lib/email/resend.ts
+import { Resend } from 'resend'
+
+if (!process.env.RESEND_API_KEY) {
+  throw new Error('RESEND_API_KEY environment variable is not set')
+}
+
+export const resend = new Resend(process.env.RESEND_API_KEY)
+```
+
+The guard at the top ensures you get a clear error at startup if the key is missing, rather than a cryptic failure at send time.
+
+## Email Templates
+
+LASUMedScreen uses `@react-email/components` to build email templates as React components. This gives you full type safety, component reuse, and the ability to preview templates in the browser during development.
+
+```tsx lib/email/templates/ScreeningConfirmation.tsx
+import { Html, Head, Body, Container, Heading, Text, Button } from '@react-email/components'
+
+interface ScreeningConfirmationProps {
+  studentName: string
+  screeningId: string
+  appUrl: string
+}
+
+export function ScreeningConfirmation({ studentName, screeningId, appUrl }: ScreeningConfirmationProps) {
+  return (
+    <Html>
+      <Head />
+      <Body style={{ fontFamily: 'sans-serif', backgroundColor: '#f9fafb' }}>
+        <Container style={{ maxWidth: '600px', margin: '0 auto', padding: '40px' }}>
+          <Heading style={{ color: '#ef7025' }}>Screening Submitted</Heading>
+          <Text>Hi {studentName},</Text>
+          <Text>
+            Your medical screening has been successfully submitted and is currently under review
+            by the medical team. You will receive an email once a decision has been made.
+          </Text>
+          <Text>Screening Reference: <strong>{screeningId}</strong></Text>
+          <Button href={`${appUrl}/student/screening/${screeningId}`}
+            style={{ backgroundColor: '#ef7025', color: '#fff', padding: '12px 24px', borderRadius: '6px' }}>
+            View Screening
+          </Button>
+        </Container>
+      </Body>
+    </Html>
+  )
+}
+```
+
+Follow the same pattern for every other email template. Keep each template in its own file under `lib/email/templates/` and export a named function component.
+
+## Sending Emails
+
+Wrap each email type in a dedicated helper function that accepts typed arguments, renders the template, and calls `resend.emails.send()`:
+
+```ts lib/email/sendScreeningConfirmation.ts
+import { resend } from './resend'
+import { ScreeningConfirmation } from './templates/ScreeningConfirmation'
+
+export async function sendScreeningConfirmation({
+  to,
+  studentName,
+  screeningId,
+}: {
+  to: string
+  studentName: string
+  screeningId: string
+}) {
+  const { data, error } = await resend.emails.send({
+    from: process.env.RESEND_FROM_EMAIL!,
+    to,
+    subject: 'Medical Screening Submitted Successfully',
+    react: ScreeningConfirmation({
+      studentName,
+      screeningId,
+      appUrl: process.env.NEXT_PUBLIC_APP_URL!,
+    }),
+  })
+
+  if (error) {
+    console.error('Failed to send screening confirmation email:', error)
+    throw new Error(error.message)
+  }
+
+  return data
+}
+```
+
+This helper is called from the corresponding Supabase Edge Function immediately after a new screening row is inserted into the database.
+
+<Tip>
+  Use Resend's sandbox domain (`@resend.dev`) for testing in development without needing a verified domain. Emails sent to the sandbox are captured in your Resend dashboard but never delivered to real inboxes.
+</Tip>
+
+<Warning>
+  Rate limits apply. Resend's free tier allows 3,000 emails/month and 100 emails/day. Check your plan limits before going live and upgrade your plan if your expected email volume exceeds these thresholds.
+</Warning>

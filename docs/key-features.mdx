@@ -1,0 +1,49 @@
+---
+title: "LASUMedScreen Key Features and Capabilities"
+sidebarTitle: "Key Features"
+description: "Explore the core features of LASUMedScreen: multi-step screening forms, clearance management, role-based access, real-time updates, and automated emails."
+---
+
+LASUMedScreen is built around a focused set of capabilities that cover the entire student medical screening lifecycle — from initial form submission through staff review to automated email notification. Every feature is designed to be secure by default, easy to maintain, and straightforward to extend as the platform grows.
+
+<CardGroup cols={2}>
+  <Card icon="file-medical" title="Medical Screening Forms">
+    A multi-step health questionnaire with client-side and server-side validation ensures complete, accurate submissions every time.
+  </Card>
+  <Card icon="shield-check" title="Clearance Management">
+    Medical staff can approve, reject, or flag any submission and attach internal notes to support their decision.
+  </Card>
+  <Card icon="users" title="Role-Based Access">
+    Student and medical staff roles are enforced at every layer, with separate dashboards tailored to each user type.
+  </Card>
+  <Card icon="lock" title="Row Level Security">
+    Supabase RLS policies guarantee that students can only read and write their own records, regardless of client-side logic.
+  </Card>
+  <Card icon="envelope" title="Email Notifications">
+    Automated transactional emails via Resend keep students informed of verification prompts and clearance status changes.
+  </Card>
+  <Card icon="bolt" title="Edge Functions">
+    Business logic runs in Supabase Edge Functions at the edge, delivering low-latency responses without blocking the UI.
+  </Card>
+  <Card icon="signal" title="Real-Time Updates">
+    Supabase Realtime pushes live clearance status changes to the student dashboard without requiring a page reload.
+  </Card>
+  <Card icon="mobile" title="Responsive Design">
+    A fully accessible, mobile-first interface built with Tailwind CSS works seamlessly on any screen size or device.
+  </Card>
+</CardGroup>
+
+## Platform Highlights
+
+The table below maps each major platform capability to the specific technology that powers it, giving you a quick reference for where to look when building or debugging a particular feature.
+
+| Feature | Description | Technology |
+|---|---|---|
+| Medical Screening | Multi-step form submission with validation | React Hook Form + Zod |
+| Clearance Workflow | Review and approve/reject submissions | Supabase DB + RLS |
+| Authentication | Email/password and magic link login | Supabase Auth |
+| Email Notifications | Transactional emails for all workflow events | Resend Email API |
+| Real-Time Status | Live updates without page reload | Supabase Realtime |
+| Edge Functions | Serverless functions for business logic | Supabase Edge Functions |
+| Type Safety | End-to-end TypeScript types | TypeScript 5+ |
+| Performance | ISR, lazy loading, image optimization | Next.js 15 |

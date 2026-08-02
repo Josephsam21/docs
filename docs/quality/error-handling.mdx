@@ -1,0 +1,112 @@
+---
+title: "Error Handling Strategy in LASUMedScreen"
+sidebarTitle: "Error Handling"
+description: "How LASUMedScreen handles errors on the frontend and backend: Zod validation, API error responses, React error boundaries, and toast notifications."
+---
+
+Robust error handling is what separates a frustrating application from a trustworthy one. LASUMedScreen treats errors as first-class concerns — every failure mode, from a misspelled form field to an unexpected server crash, has a defined handling path that communicates clearly to the user without exposing internal implementation details.
+
+## Error Categories
+
+Different types of errors require different handling strategies. The table below maps each category to its source and resolution path.
+
+| Category | Examples | Handling |
+|---|---|---|
+| Validation errors | Invalid form input | Zod + inline form errors |
+| Auth errors | Expired session, wrong password | Redirect / toast |
+| API errors | 404, 403, 500 | Error response + toast |
+| Network errors | No connectivity | Toast + retry |
+| Unexpected errors | Unhandled exceptions | Error boundary + Sentry |
+
+## API Error Responses
+
+All API routes return errors in a consistent JSON format. The `AppError` class carries a machine-readable `code`, a human-readable `message`, and an HTTP `statusCode`. The `handleApiError` helper wraps every route handler's catch block.
+
+```ts lib/api/errors.ts
+export class AppError extends Error {
+  constructor(
+    public code: string,
+    message: string,
+    public statusCode: number = 400
+  ) {
+    super(message)
+  }
+}
+
+export function handleApiError(error: unknown): Response {
+  if (error instanceof AppError) {
+    return Response.json(
+      { error: { code: error.code, message: error.message } },
+      { status: error.statusCode }
+    )
+  }
+  console.error('Unhandled API error:', error)
+  return Response.json(
+    { error: { code: 'SERVER_ERROR', message: 'An unexpected error occurred' } },
+    { status: 500 }
+  )
+}
+```
+
+Callers on the frontend check `response.ok` and read `error.code` to decide whether to display a generic message or a context-specific one.
+
+## Frontend Error Boundaries
+
+Next.js uses file-based error boundaries. Placing an `error.tsx` file in any route segment automatically wraps that segment's content in a React error boundary. When an unhandled error escapes a component tree, the boundary catches it and renders a recovery UI.
+
+```tsx components/ErrorBoundary.tsx
+'use client'
+import { useEffect } from 'react'
+
+export default function ErrorBoundary({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string }
+  reset: () => void
+}) {
+  useEffect(() => {
+    // Log to error tracking service
+    console.error('Page error:', error)
+  }, [error])
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen">
+      <h2>Something went wrong</h2>
+      <p>{error.message}</p>
+      <button onClick={reset}>Try again</button>
+    </div>
+  )
+}
+```
+
+The `reset` callback re-attempts rendering the segment, allowing users to recover from transient failures without a full page reload.
+
+## Form Validation Errors
+
+LASUMedScreen uses React Hook Form paired with Zod resolvers for all student-facing forms. When a user submits a form with invalid data, Zod validation runs synchronously and React Hook Form surfaces each field's error message as an inline hint directly beneath the affected input. Every error element carries an `aria-describedby` attribute pointing to its input, and `aria-invalid="true"` is set on the input itself, ensuring screen readers announce the error when the field receives focus.
+
+## Toast Notifications
+
+Non-blocking feedback uses a toast notification system. Toasts appear briefly in the corner of the screen and disappear automatically, keeping users informed without interrupting their workflow.
+
+```ts lib/toast.ts
+// Success
+toast.success('Screening submitted successfully')
+
+// Error
+toast.error('Failed to submit screening. Please try again.')
+
+// Info
+toast.info('Your clearance is under review.')
+```
+
+Error toasts triggered by API failures use the `message` field from the standardized error response body, giving users an actionable description rather than a generic "something went wrong."
+
+## Loading States
+
+All async operations — form submissions, data fetches, status updates — display a visual loading indicator while in-flight. Buttons are disabled and show a spinner during pending operations to prevent double-submission. Server Component pages use Next.js `loading.tsx` files to stream a skeleton UI while data is being fetched on the server, so the page feels responsive even before content arrives.
+
+<Tip>
+  Add Sentry to capture unhandled errors in production: `pnpm add @sentry/nextjs` and follow the [Sentry Next.js setup guide](https://docs.sentry.io/platforms/javascript/guides/nextjs/). Sentry will automatically instrument both the client and the Edge runtime, capturing stack traces, breadcrumbs, and session replays for every error boundary hit.
+</Tip>
