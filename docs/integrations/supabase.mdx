@@ -1,5 +1,5 @@
 ---
-title: "Supabase Integration in LASUMedScreen: Auth, DB, and Realtime"
+title: "Supabase in LASUMedScreen: Auth, Database, Realtime"
 sidebarTitle: "Supabase"
 description: "How LASUMedScreen integrates Supabase for authentication, Postgres database, Row Level Security, Realtime subscriptions, and storage."
 ---
@@ -41,8 +41,8 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from '@/types/database.types'
 
-export function createClient() {
-  const cookieStore = cookies()
+export async function createClient() {
+  const cookieStore = await cookies()
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -79,7 +79,7 @@ For a full walkthrough of the sign-up, sign-in, and session middleware implement
 
 All database access goes through the typed Supabase client. The generated `Database` type (from `@/types/database.types`) provides full type safety on every query.
 
-```ts
+```ts app/actions/screenings.ts
 // Fetch student's screenings
 const { data, error } = await supabase
   .from('screenings')

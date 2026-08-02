@@ -1,5 +1,5 @@
 ---
-title: "LASUMedScreen Frequently Asked Questions"
+title: "LASUMedScreen Developer FAQ: Deployment and Customization"
 sidebarTitle: "FAQ"
 description: "Answers to the most common questions about LASUMedScreen: deployment, customization, scaling, security, and extending the platform."
 ---
@@ -97,7 +97,11 @@ This FAQ answers the most common questions from developers deploying, customizin
     2. Go to **Authentication → SSO Providers** and configure your identity provider.
     3. Update the login page to offer the SSO option alongside email/password.
 
-    LDAP is not natively supported by Supabase Auth but can be bridged via a SAML-capable identity provider. See the Future Improvements page for more context.
+    LDAP is not natively supported by Supabase Auth but can be bridged via a SAML-capable identity provider that translates LDAP directory queries into SAML assertions.
+
+    <Note>
+      SSO requires the Supabase **Pro plan** or higher. It is not available on the free tier. See the Future Improvements page for the full SSO roadmap.
+    </Note>
   </Accordion>
 </AccordionGroup>
 
@@ -149,7 +153,7 @@ This FAQ answers the most common questions from developers deploying, customizin
     Yes. Roles in LASUMedScreen are stored as a `text` column with a check constraint. To add a new role:
 
     1. **Update the database constraint** via a migration:
-       ```sql
+       ```sql supabase/migrations/add_role_constraint.sql
        ALTER TABLE profiles
        DROP CONSTRAINT profiles_role_check;
 
@@ -158,7 +162,7 @@ This FAQ answers the most common questions from developers deploying, customizin
        CHECK (role IN ('student', 'admin', 'nurse', 'doctor'));
        ```
     2. **Create new RLS policies** scoped to the new role. For example, a nurse might need read access to all screenings but no write access:
-       ```sql
+       ```sql supabase/migrations/add_nurse_rls_policies.sql
        CREATE POLICY "Nurses can read all screenings"
        ON screenings
        FOR SELECT
@@ -234,7 +238,7 @@ This FAQ answers the most common questions from developers deploying, customizin
 
     - **Pagination:** All list views (admin screening table, notification list) use cursor-based or offset pagination — this is already implemented and should not be removed.
     - **Database indexes:** Ensure indexes exist on frequently filtered columns:
-      ```sql
+      ```sql supabase/migrations/add_screening_indexes.sql
       CREATE INDEX IF NOT EXISTS idx_screenings_status ON screenings(status);
       CREATE INDEX IF NOT EXISTS idx_screenings_student_id ON screenings(student_id);
       CREATE INDEX IF NOT EXISTS idx_screenings_created_at ON screenings(created_at DESC);

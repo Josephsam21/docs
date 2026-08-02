@@ -1,7 +1,7 @@
 ---
-title: "State Management in LASUMedScreen: Hooks, Context, and Caching"
+title: "State Management in LASUMedScreen: Hooks and Caching"
 sidebarTitle: "State Management"
-description: "How LASUMedScreen manages state: React Server Components for server data, React Hook Form for forms, Supabase Realtime for live updates, and client context for auth."
+description: "How LASUMedScreen manages state: RSC for server data, React Hook Form for forms, Supabase Realtime for live updates, and client context for auth."
 ---
 
 LASUMedScreen uses a layered state management approach — server state lives in React Server Components and is fetched directly from Supabase, while client state is managed locally with hooks and context. This architecture keeps the client bundle small, avoids redundant client-side fetches for data that does not change during a session, and reserves the reactive client layer for genuinely interactive concerns like form state, real-time updates, and UI toggles.

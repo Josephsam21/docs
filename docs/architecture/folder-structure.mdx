@@ -10,7 +10,7 @@ LASUMedScreen uses a feature-oriented folder structure designed around the Next.
 
 The annotated tree below shows every top-level directory and its most important files.
 
-```
+```text
 lasumedscreen/
 ├── app/                          # Next.js 15 App Router
 │   ├── (auth)/                   # Auth route group (login, register)
@@ -105,3 +105,12 @@ The `types/` directory centralises all TypeScript interfaces and type aliases. T
 ### `middleware.ts`
 
 The root `middleware.ts` file runs on every incoming request before it reaches a page or API route. It calls the Supabase session refresh helper from `lib/supabase/middleware.ts`, validates the session token, and redirects unauthenticated users to `/login`. It also attaches the refreshed session to the response so that Server Components downstream receive a valid cookie without an extra round-trip.
+
+<CardGroup cols={2}>
+  <Card title="Architecture Overview" icon="sitemap" href="/docs/architecture/overview">
+    Understand how every layer of LASUMedScreen connects.
+  </Card>
+  <Card title="Data Flow" icon="arrow-right-arrow-left" href="/docs/architecture/data-flow">
+    Trace how data moves from React forms through Supabase and back.
+  </Card>
+</CardGroup>

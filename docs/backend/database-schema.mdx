@@ -1,7 +1,7 @@
 ---
 title: "LASUMedScreen Database Schema and Table Reference"
 sidebarTitle: "Database Schema"
-description: "Complete database schema for LASUMedScreen: tables, columns, relationships, indexes, RLS policies, and an ER diagram."
+description: "Complete database schema for LASUMedScreen: profiles, screenings, clearances, and notifications tables, with RLS policies and an ER diagram."
 ---
 
 LASUMedScreen uses Supabase Postgres as its primary data store. The schema is designed around three core entities — users, screenings, and clearances — with a supporting notifications table for in-app and email activity logs. Row Level Security is enforced at the database level on every table, ensuring that data isolation is guaranteed even if application-layer checks are bypassed.

@@ -1,7 +1,7 @@
 ---
 title: "Deploy LASUMedScreen to Production on Vercel"
 sidebarTitle: "Deployment"
-description: "Deploy LASUMedScreen to Vercel in minutes. Set environment variables, configure your Supabase production project, and go live."
+description: "Deploy LASUMedScreen to Vercel or self-host with Docker. Configure a production Supabase project, set environment variables, and automate CI/CD releases."
 ---
 
 LASUMedScreen is optimised for deployment on Vercel, but can run on any platform that supports Node.js 20 and Next.js 15. This page covers the recommended Vercel workflow, production Supabase configuration, and self-hosted options for teams that need full infrastructure control.
@@ -97,6 +97,67 @@ If your institution requires on-premises hosting or a private cloud environment,
     The production server listens on port 3000 by default. Use a reverse proxy such as Nginx or Caddy to terminate TLS and forward traffic to the Node.js process.
   </Tab>
 </Tabs>
+
+## CI/CD with GitHub Actions
+
+Automating deployments with a CI/CD pipeline ensures that every push to `main` is type-checked, linted, and built before it reaches production. The workflow below runs on GitHub Actions and triggers a Vercel deployment only after all checks pass.
+
+Create `.github/workflows/deploy.yml` in the project root:
+
+```yaml .github/workflows/deploy.yml
+name: CI / Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    name: Type-check, lint, and build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_APP_NAME: LASUMedScreen
+```
+
+Add each secret in your GitHub repository under **Settings → Secrets and variables → Actions**. Vercel's Git integration then picks up the successful push and triggers a production deployment automatically — no separate deploy step is needed in the workflow.
+
+<Tip>
+  For pull requests, Vercel creates an isolated **preview deployment** at a unique URL. Use this URL to review changes before merging to `main`. You can configure preview deployments to use separate **Preview**-scoped environment variables in the Vercel dashboard so that preview builds never touch your production database.
+</Tip>
 
 ## Deployment Checklist
 

@@ -1,7 +1,7 @@
 ---
 title: "Supabase Edge Functions in LASUMedScreen"
 sidebarTitle: "Edge Functions"
-description: "How LASUMedScreen uses Supabase Edge Functions for post-submission processing, clearance email delivery, and admin notifications."
+description: "How LASUMedScreen uses Supabase Edge Functions for post-submission processing, clearance certificate email delivery, and real-time admin notifications."
 ---
 
 LASUMedScreen uses three Supabase Edge Functions for asynchronous, server-side processing. These functions run on Deno at the edge and are triggered either by database webhooks or direct HTTP calls from API routes. Offloading these tasks to Edge Functions keeps your Next.js Route Handlers fast and ensures that email delivery and notification creation happen reliably in the background, even if the user closes their browser after submitting.

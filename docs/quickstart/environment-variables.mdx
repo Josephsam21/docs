@@ -47,6 +47,10 @@ The table below describes every environment variable, whether it is required, wh
 - **Resend From Email** — Use any address on a domain you have verified in Resend. For development, `onboarding@resend.dev` works without domain setup.
 
 <Warning>
+  Variables prefixed with `NEXT_PUBLIC_` are **embedded into the browser bundle** and visible to anyone who inspects your site's JavaScript. Only use the `NEXT_PUBLIC_` prefix for values that are genuinely safe to expose publicly — such as the Supabase URL and anon key, which are protected by Row Level Security. Never prefix secret keys (like `SUPABASE_SERVICE_ROLE_KEY` or `RESEND_API_KEY`) with `NEXT_PUBLIC_`.
+</Warning>
+
+<Warning>
   `SUPABASE_SERVICE_ROLE_KEY` bypasses Row Level Security and has full read/write access to your entire database. Never reference this variable in any file prefixed with `NEXT_PUBLIC_`, never log it, and never commit it to Git. Use it only in server-side API routes and Edge Functions.
 </Warning>
 

@@ -1,5 +1,5 @@
 ---
-title: "Future Improvements and Roadmap for LASUMedScreen"
+title: "Future Improvements and Feature Roadmap for LASUMedScreen"
 sidebarTitle: "Future Improvements"
 description: "Planned improvements for LASUMedScreen: testing, monitoring, analytics, scalability, enhanced features, and architecture evolution ideas."
 ---
@@ -80,14 +80,39 @@ The current architecture handles thousands of concurrent users comfortably. The 
 
 The following features are planned for future releases, ordered roughly by implementation priority.
 
-1. **PDF Certificate Generation** — Use `@react-pdf/renderer` to generate clearance certificates server-side as downloadable PDFs, replacing the current screen-only clearance status page
-2. **Bulk Admin Operations** — Allow admins to select multiple screening submissions and approve or reject them in a single action, reducing repetitive work during peak enrollment periods
-3. **Medical Staff Notes Templates** — Pre-filled note templates for the most common admin responses (e.g. "Follow-up appointment required", "Documents incomplete"), reducing typing time and improving consistency
-4. **SMS Notifications** — Twilio integration for students without reliable email access, sending clearance status updates as SMS messages to their registered phone number
-5. **Audit Log** — A tamper-evident log of every admin action, recording the acting user, timestamp, affected record, and the before/after state of any changed field
-6. **Multi-Tenancy** — Support multiple universities or faculties within a single deployment, with isolated data, branding, and admin roles per tenant
-7. **Offline Support** — A Service Worker that caches the screening form shell and queues submissions locally, allowing students to complete the form in low-connectivity environments and sync when connectivity returns
-8. **API Rate Limiting** — An [Upstash Redis](https://upstash.com)-based rate limiter applied to all API routes to prevent abuse and protect the database from traffic spikes
+<AccordionGroup>
+  <Accordion title="PDF Certificate Generation">
+    Use `@react-pdf/renderer` to generate clearance certificates server-side as downloadable PDFs, replacing the current screen-only clearance status page. The certificate would include the student's name, ID, screening date, and an authorised signature field rendered from a stored image asset.
+  </Accordion>
+
+  <Accordion title="Bulk Admin Operations">
+    Allow admins to select multiple screening submissions and approve or reject them in a single action, reducing repetitive work during peak enrollment periods. A confirmation dialog would summarise the selected records before the batch write is committed.
+  </Accordion>
+
+  <Accordion title="Medical Staff Notes Templates">
+    Pre-filled note templates for the most common admin responses (e.g. "Follow-up appointment required", "Documents incomplete"), reducing typing time and improving consistency across the review team. Templates would be editable by a super-admin from a settings panel.
+  </Accordion>
+
+  <Accordion title="SMS Notifications">
+    Twilio integration for students without reliable email access, sending clearance status updates as SMS messages to their registered phone number. SMS would be triggered by the same `notifications` table webhook that already drives email, with a per-user preference flag controlling which channel is used.
+  </Accordion>
+
+  <Accordion title="Audit Log">
+    A tamper-evident log of every admin action, recording the acting user, timestamp, affected record, and the before/after state of any changed field. The log would be stored in a dedicated `audit_events` table with append-only RLS policies preventing any modification after insert.
+  </Accordion>
+
+  <Accordion title="Multi-Tenancy">
+    Support multiple universities or faculties within a single deployment, with isolated data, branding, and admin roles per tenant. Implementation requires an `institution_id` column on all data tables, updated RLS policies scoped by institution, and a tenant-aware onboarding flow. See the FAQ for a step-by-step outline.
+  </Accordion>
+
+  <Accordion title="Offline Support">
+    A Service Worker that caches the screening form shell and queues submissions locally, allowing students to complete the form in low-connectivity environments and sync when connectivity returns. Background sync via the Web Background Synchronization API would handle the deferred upload when the device reconnects.
+  </Accordion>
+
+  <Accordion title="API Rate Limiting">
+    An [Upstash Redis](https://upstash.com)-based rate limiter applied to all API routes to prevent abuse and protect the database from traffic spikes. The limiter would enforce per-IP and per-user sliding-window limits, returning a `429 Too Many Requests` response with a `Retry-After` header when the limit is exceeded.
+  </Accordion>
+</AccordionGroup>
 
 ## Architecture Evolution
 

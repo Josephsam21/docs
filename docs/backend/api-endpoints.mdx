@@ -64,7 +64,14 @@ Authenticates a student or admin and sets the session cookie.
 **Success Response (200):**
 
 ```json
-{ "user": { "..." : "..." }, "session": { "..." : "..." } }
+{
+  "user": {
+    "id": "uuid",
+    "email": "student@uni.edu.ng",
+    "user_metadata": { "role": "student", "fullName": "John Doe" }
+  },
+  "session": { "access_token": "...", "expires_at": 1234567890 }
+}
 ```
 
 **Error Responses:** `400` (invalid credentials), `401` (email not confirmed)
@@ -80,6 +87,21 @@ Clears the session cookie and invalidates the current session server-side. Retur
 ### `GET /api/auth/session`
 
 Returns the currently authenticated user and session metadata. Returns `401` if no valid session is found.
+
+**Success Response (200):**
+
+```json
+{
+  "user": {
+    "id": "uuid",
+    "email": "student@uni.edu.ng",
+    "user_metadata": { "role": "student", "fullName": "John Doe" }
+  },
+  "session": { "access_token": "...", "expires_at": 1234567890 }
+}
+```
+
+**Error Responses:** `401` (no active session)
 
 ---
 
@@ -223,7 +245,14 @@ Returns a paginated list of all screening submissions with optional status filte
 
 ```json
 {
-  "data": [{ "...": "..." }],
+  "data": [
+    {
+      "id": "uuid",
+      "student_id": "uuid",
+      "status": "pending",
+      "created_at": "2024-01-15T10:30:00Z"
+    }
+  ],
   "count": 150,
   "page": 1,
   "limit": 20
@@ -235,6 +264,40 @@ Returns a paginated list of all screening submissions with optional status filte
 ### `PATCH /api/admin/screenings/:id/approve`
 
 Approves a specific screening and triggers the clearance creation flow, including sending the clearance certificate email to the student. Requires the `admin` role.
+
+---
+
+## Notification Endpoints
+
+### `POST /api/notifications/send`
+
+Send a notification to a specific user. Requires the `admin` role.
+
+**Request Body:**
+
+```json
+{
+  "user_id": "uuid",
+  "type": "info",
+  "title": "Screening Update",
+  "message": "Your screening is under review."
+}
+```
+
+**Success Response (201):**
+
+```json
+{
+  "id": "uuid",
+  "user_id": "uuid",
+  "type": "info",
+  "title": "Screening Update",
+  "is_read": false,
+  "created_at": "2024-01-15T10:30:00Z"
+}
+```
+
+**Error Responses:** `400` (validation failed), `401` (unauthorized), `403` (not admin)
 
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "Prerequisites for LASUMedScreen Development Setup"
 sidebarTitle: "Prerequisites"
-description: "Everything you need before installing LASUMedScreen: Node.js 20, a Supabase project, a Resend API key, and Git."
+description: "Everything you need before installing LASUMedScreen: Node.js 18.17 or 20 LTS, pnpm, Git, a Supabase project, and a Resend account."
 ---
 
 Before you clone and run LASUMedScreen, you need a few tools and accounts in place. This page walks you through each one so that your local environment is ready before you write a single line of configuration.
@@ -11,12 +11,12 @@ Before you clone and run LASUMedScreen, you need a few tools and accounts in pla
 You need three command-line tools installed on your machine before you begin.
 
 <Steps>
-  <Step title="Install Node.js 20 LTS">
-    Download and install Node.js 20 LTS from [nodejs.org](https://nodejs.org). After installation, confirm the version:
+  <Step title="Install Node.js 18.17+ or 20 LTS">
+    LASUMedScreen requires Node.js **18.17 or later**. Node.js 20 LTS is recommended for the best compatibility with Next.js 15. Download and install from [nodejs.org](https://nodejs.org), then confirm the version:
 
     ```bash Terminal
     node --version
-    # Expected: v20.x.x
+    # Expected: v18.17.x or v20.x.x
     ```
   </Step>
 

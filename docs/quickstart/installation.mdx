@@ -1,7 +1,7 @@
 ---
 title: "Install and Set Up LASUMedScreen Locally"
 sidebarTitle: "Installation"
-description: "Clone LASUMedScreen, install dependencies with pnpm, and prepare your local environment in under 5 minutes."
+description: "Clone LASUMedScreen, install dependencies with pnpm, apply the database schema, and have a running local dev server in under five minutes."
 ---
 
 Getting LASUMedScreen running on your machine takes less than five minutes. By the end of this page you will have a fully functional local instance connected to your Supabase project and ready for development. Make sure you have completed the [Prerequisites](/docs/quickstart/prerequisites) page before continuing.
@@ -76,3 +76,14 @@ Getting LASUMedScreen running on your machine takes less than five minutes. By t
 <Warning>
   Never commit `.env.local` to version control. It contains secret keys — including your Supabase service role key — that would expose your entire database if made public. The `.gitignore` file in the repository already excludes `.env.local`, but double-check before pushing.
 </Warning>
+
+## What's Next
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="key" href="/docs/quickstart/environment-variables">
+    Full reference for every variable, where to find its value, and how to scope credentials per environment.
+  </Card>
+  <Card title="Run Locally" icon="play" href="/docs/quickstart/running-locally">
+    Start the dev server, switch to a local Supabase instance, and explore the available dev scripts.
+  </Card>
+</CardGroup>
