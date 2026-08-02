@@ -11,7 +11,7 @@ LASUMedScreen's design system is the single source of truth for all visual decis
 The colour palette is deliberately small and purposeful. Each token has a primary semantic role so that colours carry meaning across the entire product rather than being applied arbitrarily.
 
 | Token | Value | Usage |
-|---|---|---|
+| --- | --- | --- |
 | Primary | `#ef7025` | CTAs, active nav states, interactive links |
 | Primary Light | `#eec9bc` | Hover backgrounds, tinted section fills |
 | Primary Dark | `#4fa1ab` | Dark mode accents, footer backgrounds |
@@ -54,7 +54,7 @@ export default config
 LASUMedScreen uses **Inter** as its sole typeface, loaded via `next/font/google` for zero-layout-shift font delivery. The type scale follows a fixed set of pre-approved combinations of `font-size` and `font-weight` so that visual hierarchy is immediately legible across all pages.
 
 | Style | Class | Size | Weight | Use |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Heading 1 | `text-4xl font-bold` | 36px | 700 | Page titles and hero headings |
 | Heading 2 | `text-2xl font-semibold` | 24px | 600 | Section titles within a page |
 | Heading 3 | `text-xl font-semibold` | 20px | 600 | Card titles and sub-section labels |
@@ -69,8 +69,8 @@ Apply these combinations through the `PageHeader`, `Card`, and other shared comp
 LASUMedScreen is designed mobile-first. Base styles target the smallest viewports, and breakpoint prefixes progressively enhance the layout for larger screens. The platform must remain fully functional on the tablets used in clinic waiting rooms, so the `md:` breakpoint is the most commonly used upgrade point.
 
 | Breakpoint | Screen Width | Tailwind Prefix |
-|---|---|---|
-| Mobile | < 640px | (default, no prefix) |
+| --- | --- | --- |
+| Mobile | \< 640px | (default, no prefix) |
 | Small | 640px and above | `sm:` |
 | Medium | 768px and above | `md:` |
 | Large | 1024px and above | `lg:` |
@@ -83,7 +83,7 @@ The sidebar collapses to a drawer below `md:`, the screening form steps stack ve
 All spacing in LASUMedScreen follows a **4px base unit**. Every margin, padding, gap, and size value in the codebase is a multiple of 4px, which maps exactly to Tailwind's default numeric scale. The most commonly used values are:
 
 | Tailwind Class | Pixels | Typical Use |
-|---|---|---|
+| --- | --- | --- |
 | `p-1` / `m-1` | 4px | Tight internal padding in badges |
 | `p-2` / `m-2` | 8px | Icon button padding |
 | `p-3` / `m-3` | 12px | Form field internal spacing |
@@ -103,7 +103,7 @@ Accessibility is a first-class requirement in LASUMedScreen, not an afterthought
 - **Colour is never the sole state indicator** — Status badges always include an icon and a text label alongside the colour. For example, an approved screening shows a green checkmark icon, the word "Approved", and a green background — never just a green dot.
 - **ARIA labels on icon-only buttons** — Any button that renders only an icon (close, expand, refresh) must include an `aria-label` attribute describing the action.
 - **Screen reader testing** — All interactive flows are manually tested with VoiceOver on macOS/iOS and NVDA on Windows before release.
-- **Contrast ratios** — Normal text meets a minimum contrast ratio of 4.5:1 against its background. Large text (18px+ bold or 24px+) meets a minimum of 3:1. Run `npx axe-cli` against staging to verify before merging.
+- **Contrast ratios** — Normal text meets a minimum contrast ratio of 4.5:1 against its background. Large text (18px or larger in bold, or 24px or larger) meets a minimum of 3:1. Run `npx axe-cli` against staging to verify before merging.
 
 ## Dark Mode
 

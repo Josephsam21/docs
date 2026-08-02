@@ -4,7 +4,7 @@ sidebarTitle: "Deployment"
 description: "Deploy LASUMedScreen to Vercel or self-host with Docker. Configure a production Supabase project, set environment variables, and automate CI/CD releases."
 ---
 
-LASUMedScreen is optimised for deployment on Vercel, but can run on any platform that supports Node.js 20 and Next.js 15. This page covers the recommended Vercel workflow, production Supabase configuration, and self-hosted options for teams that need full infrastructure control.
+LASUMedScreen is optimised for deployment on Vercel, but can run on any platform that supports Node.js 20 and Next.js 15. This page covers the fastest path to production. For advanced build configuration, Docker self-hosting, and full CI/CD pipelines, see [Build & Deploy](/docs/configuration/build-and-deployment).
 
 ## Deploy to Vercel
 
@@ -20,21 +20,17 @@ Vercel is the fastest path from repository to production URL. It handles build c
     git push origin main
     ```
   </Step>
-
   <Step title="Import the repository on Vercel">
     Go to [vercel.com](https://vercel.com), sign in, and click **Add New → Project**. Select your Git provider, find the `lasumedscreen` repository, and click **Import**.
   </Step>
-
   <Step title="Set the framework preset">
     Vercel should automatically detect Next.js. If it does not, open the **Framework Preset** dropdown and select **Next.js**. Leave the build command and output directory at their default values.
   </Step>
-
   <Step title="Add environment variables">
     Before clicking Deploy, expand the **Environment Variables** section and add all the variables from your `.env.local` file — replacing every value with your **production** credentials. Use your production Supabase project URL and keys, your verified Resend sending domain, and your live app URL.
 
-    See the [Environment Variables](/docs/quickstart/environment-variables) page for the full variable reference.
+    See the [Environment Variables reference](/docs/configuration/environment-variables) for the full list of variables and where to find each value.
   </Step>
-
   <Step title="Deploy">
     Click **Deploy**. Vercel runs `pnpm build`, performs any output optimisations, and publishes the app to a `.vercel.app` URL. Subsequent pushes to `main` trigger automatic redeployments.
   </Step>
@@ -50,129 +46,10 @@ Your production deployment must use a dedicated Supabase project that is complet
   - **Site URL** to your production domain (e.g. `https://lasumedscreen.youruniversity.edu.ng`)
   - **Redirect URLs** to include all allowed post-auth redirect paths.
 - **Run migrations** against your production database using the Supabase CLI:
-
   ```bash Terminal
   supabase db push --db-url your-production-db-url
   ```
-
   Replace `your-production-db-url` with the connection string shown in **Settings → Database** in your production Supabase project.
-
-## Self-Hosted Deployment
-
-If your institution requires on-premises hosting or a private cloud environment, you can build and run LASUMedScreen without Vercel.
-
-<Tabs>
-  <Tab title="Docker">
-    Create a `Dockerfile` in the project root with the following contents, then build and run the image:
-
-    ```dockerfile Dockerfile
-    FROM node:20-alpine AS base
-    WORKDIR /app
-    COPY package*.json ./
-    RUN npm ci --only=production
-    COPY . .
-    RUN npm run build
-    EXPOSE 3000
-    CMD ["npm", "start"]
-    ```
-
-    Build and run the container:
-
-    ```bash Terminal
-    docker build -t lasumedscreen .
-    docker run -p 3000:3000 --env-file .env.production lasumedscreen
-    ```
-
-    Pass all environment variables via a `.env.production` file or your container orchestration platform's secrets management.
-  </Tab>
-
-  <Tab title="Node.js">
-    On any server running Node.js 20, build the application and start the production server directly:
-
-    ```bash Terminal
-    pnpm build
-    pnpm start
-    ```
-
-    The production server listens on port 3000 by default. Use a reverse proxy such as Nginx or Caddy to terminate TLS and forward traffic to the Node.js process.
-  </Tab>
-</Tabs>
-
-## CI/CD with GitHub Actions
-
-Automating deployments with a CI/CD pipeline ensures that every push to `main` is type-checked, linted, and built before it reaches production. The workflow below runs on GitHub Actions and triggers a Vercel deployment only after all checks pass.
-
-Create `.github/workflows/deploy.yml` in the project root:
-
-```yaml .github/workflows/deploy.yml
-name: CI / Deploy
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  ci:
-    name: Type-check, lint, and build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 8
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Type check
-        run: pnpm type-check
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Build
-        run: pnpm build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
-          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
-          NEXT_PUBLIC_APP_NAME: LASUMedScreen
-```
-
-Add each secret in your GitHub repository under **Settings → Secrets and variables → Actions**. Vercel's Git integration then picks up the successful push and triggers a production deployment automatically — no separate deploy step is needed in the workflow.
-
-<Tip>
-  For pull requests, Vercel creates an isolated **preview deployment** at a unique URL. Use this URL to review changes before merging to `main`. You can configure preview deployments to use separate **Preview**-scoped environment variables in the Vercel dashboard so that preview builds never touch your production database.
-</Tip>
-
-## Deployment Checklist
-
-Use this checklist before every production release to make sure nothing critical is missing.
-
-<Note>
-  **Pre-launch checklist**
-
-  - [ ] All environment variables set in your hosting platform
-  - [ ] Supabase production project created (separate from dev)
-  - [ ] Row Level Security enabled on all tables
-  - [ ] Resend sending domain verified
-  - [ ] Auth redirect URLs configured in Supabase dashboard
-  - [ ] Production build tested locally with `pnpm build && pnpm start`
-</Note>
 
 <Warning>
   Never use your development Supabase project in production. Development projects frequently have RLS disabled for convenience, permissive policies, and test data. Create a separate production project with its own URL and credentials, and treat those credentials as highly sensitive.
@@ -181,10 +58,11 @@ Use this checklist before every production release to make sure nothing critical
 ## What's Next
 
 <CardGroup cols={2}>
-  <Card title="Environment Variables" icon="key" href="/docs/quickstart/environment-variables">
-    Review every environment variable and where to find its production value.
+  <Card title="Build & Deploy" icon="rocket" href="/docs/configuration/build-and-deployment">
+    Advanced build configuration, self-hosting with Docker, CI/CD pipelines, and the full pre-launch checklist.
   </Card>
-  <Card title="Build & Deployment" icon="rocket" href="/docs/configuration/build-and-deployment">
-    Advanced build configuration, CI/CD pipelines, and multi-environment strategies.
+
+  <Card title="Environment Variables" icon="key" href="/docs/configuration/environment-variables">
+    Every environment variable, including production and preview-scoped guidance.
   </Card>
 </CardGroup>

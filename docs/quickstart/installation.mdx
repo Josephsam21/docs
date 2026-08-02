@@ -11,29 +11,29 @@ Getting LASUMedScreen running on your machine takes less than five minutes. By t
     Clone the LASUMedScreen repository to your local machine and navigate into the project directory:
 
     ```bash Terminal
-    git clone https://github.com/your-org/lasumedscreen.git
+    git clone https://github.com/jj-copys/lasumedscreen.git
     cd lasumedscreen
     ```
   </Step>
-
   <Step title="Install dependencies">
     Install all project dependencies using your preferred package manager. pnpm is recommended for speed and disk efficiency:
 
     <CodeGroup>
-      ```bash pnpm
-      pnpm install
-      ```
 
-      ```bash npm
-      npm install
-      ```
+    ```bash pnpm
+    pnpm install
+    ```
 
-      ```bash yarn
-      yarn install
-      ```
+    ```bash npm
+    npm install
+    ```
+
+    ```bash yarn
+    yarn install
+    ```
+
     </CodeGroup>
   </Step>
-
   <Step title="Copy the environment file">
     Create your local environment file by copying the provided example:
 
@@ -43,11 +43,9 @@ Getting LASUMedScreen running on your machine takes less than five minutes. By t
 
     This gives you a template with all the variable names already defined. You will fill in the values in the next step.
   </Step>
-
   <Step title="Configure environment variables">
     Open `.env.local` in your editor and fill in your Supabase project URL, anon key, service role key, Resend API key, and app URL. See the [Environment Variables](/docs/quickstart/environment-variables) page for a full reference of every variable and where to find its value.
   </Step>
-
   <Step title="Set up the database">
     Apply the LASUMedScreen schema to your Supabase project. If you have the Supabase CLI installed, push all pending migrations:
 
@@ -57,7 +55,6 @@ Getting LASUMedScreen running on your machine takes less than five minutes. By t
 
     Alternatively, you can copy the contents of `supabase/schema.sql` and run it directly in the **SQL Editor** inside your Supabase dashboard. See the [Database Schema](/docs/backend/database-schema) page for a full breakdown of every table and relationship.
   </Step>
-
   <Step title="Start the development server">
     Start the Next.js development server with hot module replacement:
 
@@ -83,6 +80,7 @@ Getting LASUMedScreen running on your machine takes less than five minutes. By t
   <Card title="Environment Variables" icon="key" href="/docs/quickstart/environment-variables">
     Full reference for every variable, where to find its value, and how to scope credentials per environment.
   </Card>
+
   <Card title="Run Locally" icon="play" href="/docs/quickstart/running-locally">
     Start the dev server, switch to a local Supabase instance, and explore the available dev scripts.
   </Card>

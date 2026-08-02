@@ -11,9 +11,9 @@ Before you can run, develop, or deploy LASUMedScreen, you need to ensure your lo
 The table below shows the minimum and recommended versions for each local dependency. Using the recommended versions ensures compatibility with the tooling and configuration files already present in the repository.
 
 | Requirement | Minimum Version | Recommended |
-|---|---|---|
-| Node.js | 18.17+ | 20 LTS |
-| npm / yarn / pnpm | npm 9+ | pnpm 8+ |
+| --- | --- | --- |
+| Node.js | 18.17 or later | 20 LTS |
+| npm / yarn / pnpm | npm 9 or later | pnpm 8 or later |
 | Git | 2.x | Latest |
 | OS | macOS / Linux / Windows (WSL) | macOS or Linux |
 
@@ -26,10 +26,11 @@ The table below shows the minimum and recommended versions for each local depend
 LASUMedScreen relies on two cloud services for its backend and email functionality. You need a free account with each provider before you can run the application end-to-end.
 
 <CardGroup cols={2}>
-  <Card icon="database" title="Supabase Account">
+  <Card title="Supabase Account" icon="database">
     Create a free account at [supabase.com](https://supabase.com) and spin up a new project. You will need your project URL and anon (public) key to populate the environment variables.
   </Card>
-  <Card icon="envelope" title="Resend Account">
+
+  <Card title="Resend Account" icon="envelope">
     Create a free account at [resend.com](https://resend.com). You will need an API key and a verified sending domain to dispatch transactional emails from the platform.
   </Card>
 </CardGroup>

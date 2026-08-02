@@ -28,6 +28,7 @@ This FAQ answers the most common questions from developers deploying, customizin
     LASUMedScreen depends on Supabase for authentication, the database, Realtime subscriptions, and Edge Functions. If Supabase experiences an outage, the application will show error states — users will not be able to log in or submit screenings, and in-app notifications will stop updating.
 
     To reduce the impact of downtime:
+
     - Monitor Supabase status at [status.supabase.com](https://status.supabase.com).
     - Set up uptime monitoring for your application URL (e.g., via Vercel Analytics or an external monitor like UptimeRobot).
     - For production deployments serving many users, consider upgrading to Supabase's **Pro plan**, which comes with enhanced SLAs and priority support.
@@ -37,6 +38,7 @@ This FAQ answers the most common questions from developers deploying, customizin
     Not natively. The current schema is **single-tenant** — all data belongs to one institution and there is no concept of an institution boundary in the database.
 
     To add multi-tenancy support:
+
     1. Add an `institution_id` UUID column to all relevant tables (`profiles`, `screenings`, `notifications`).
     2. Update all RLS policies to scope reads and writes by both `auth.uid()` and `institution_id`.
     3. Add an `institutions` table to store institution-level configuration (name, logo URL, ID format).
@@ -82,9 +84,10 @@ This FAQ answers the most common questions from developers deploying, customizin
   </Accordion>
 
   <Accordion title="Is the data encrypted at rest?">
-    Yes. Supabase Postgres encrypts all data at rest using **AES-256** encryption managed by the underlying cloud infrastructure (AWS or Fly.io depending on the region). Data in transit between the client, the Next.js server, and Supabase is protected by **TLS 1.2+**.
+    Yes. Supabase Postgres encrypts all data at rest using **AES-256** encryption managed by the underlying cloud infrastructure (AWS or Fly.io depending on the region). Data in transit between the client, the Next.js server, and Supabase is protected by **TLS 1.2 or later**.
 
     For additional data protection:
+
     - Avoid storing plaintext sensitive fields (e.g., national ID numbers) directly in columns — consider encrypting them at the application layer before insert.
     - Enable **Point-in-Time Recovery** on the Supabase Pro plan to protect against accidental data loss.
   </Accordion>
@@ -93,6 +96,7 @@ This FAQ answers the most common questions from developers deploying, customizin
     Yes, with a Supabase upgrade. Supabase Auth supports **SAML 2.0 SSO** on the Pro and Enterprise plans. This would allow students and staff to authenticate using their existing university credentials (Microsoft Entra ID, Google Workspace, etc.) without creating a separate password.
 
     To enable SSO:
+
     1. Upgrade to Supabase Pro.
     2. Go to **Authentication → SSO Providers** and configure your identity provider.
     3. Update the login page to offer the SSO option alongside email/password.
@@ -156,7 +160,6 @@ This FAQ answers the most common questions from developers deploying, customizin
        ```sql supabase/migrations/add_role_constraint.sql
        ALTER TABLE profiles
        DROP CONSTRAINT profiles_role_check;
-
        ALTER TABLE profiles
        ADD CONSTRAINT profiles_role_check
        CHECK (role IN ('student', 'admin', 'nurse', 'doctor'));
@@ -183,7 +186,7 @@ This FAQ answers the most common questions from developers deploying, customizin
 
 <AccordionGroup>
   <Accordion title="Can I self-host instead of using Vercel?">
-    Yes. LASUMedScreen can run on any host that supports Node.js 20+. A `Dockerfile` is provided in the deployment guide for containerized deployments. Self-hosting with Docker gives you full control over the infrastructure but requires you to manage:
+    Yes. LASUMedScreen can run on any host that supports Node.js 20 or later. A `Dockerfile` is provided in the deployment guide for containerized deployments. Self-hosting with Docker gives you full control over the infrastructure but requires you to manage:
 
     - **SSL certificates** — use a reverse proxy like Nginx or Caddy with Let's Encrypt.
     - **Deployments** — build the image and restart the container on each release.
@@ -194,9 +197,11 @@ This FAQ answers the most common questions from developers deploying, customizin
 
   <Accordion title="How do I run database migrations in production?">
     Use the Supabase CLI to push pending migrations to your production database:
+
     ```bash
     supabase db push --db-url postgresql://postgres:[password]@[host]:5432/postgres
     ```
+
     You can also apply migrations manually through the **Supabase Dashboard → SQL Editor**.
 
     <Warning>
@@ -225,7 +230,7 @@ This FAQ answers the most common questions from developers deploying, customizin
     Concurrency is primarily limited by the Supabase database connection pool, not the Next.js application layer (Vercel scales horizontally).
 
     | Supabase Plan | Max DB Connections | Recommended Concurrent Users |
-    |---|---|---|
+    | --- | --- | --- |
     | Free | ~60 | ~50–100 |
     | Pro | ~200 | ~300–500 |
     | Team | ~500 | ~800–1,500 |

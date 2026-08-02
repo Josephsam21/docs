@@ -11,7 +11,7 @@ LASUMedScreen is built with accessibility as a first-class concern, targeting WC
 The table below maps the most relevant WCAG 2.1 success criteria to their concrete implementation in LASUMedScreen.
 
 | Criterion | Implementation |
-|---|---|
+| --- | --- |
 | 1.1.1 Non-text Content | All images have descriptive alt attributes |
 | 1.3.1 Info and Relationships | Semantic HTML (`header`, `main`, `nav`, `section`) |
 | 1.4.3 Contrast | Minimum 4.5:1 ratio for normal text |
@@ -43,7 +43,7 @@ You should never use a generic element with an `onClick` handler as a substitute
 
 Every workflow in LASUMedScreen can be completed using only a keyboard. The following behaviors are consistently implemented across the application.
 
-- All forms support **Tab** to advance to the next field and **Shift+Tab** to move backward
+- All forms support `Tab` to advance to the next field, and `Shift+Tab` to move backward
 - Modal dialogs **trap focus** within themselves while open and return focus to the trigger element when closed
 - Modal dialogs close on the **Escape** key
 - Dropdown menus respond to **Arrow Up** and **Arrow Down** to move between options

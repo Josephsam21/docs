@@ -104,11 +104,11 @@ Credentials and API keys must never be committed to version control or exposed t
 Use this checklist to verify that all controls are active before going live.
 
 | Control | Implementation | Status |
-|---|---|---|
-| Authentication | Supabase Auth + JWT | ✅ Implemented |
-| Authorization | RLS + Role checks | ✅ Implemented |
+| --- | --- | --- |
+| Authentication | Supabase Auth with JWT | ✅ Implemented |
+| Authorization | RLS with role checks | ✅ Implemented |
 | Input validation | Zod schemas | ✅ Implemented |
-| XSS prevention | React defaults + CSP | ✅ Implemented |
+| XSS prevention | React defaults with CSP | ✅ Implemented |
 | CSRF protection | SameSite cookies | ✅ Implemented |
 | Secret management | Env vars, not in code | ✅ Implemented |
 | HTTPS | Vercel/host enforced | ✅ Implemented |

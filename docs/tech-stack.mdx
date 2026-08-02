@@ -14,7 +14,7 @@ Every technology in LASUMedScreen was chosen deliberately. This page explains th
 
     ```tsx app/dashboard/page.tsx
     import { createClient } from '@/lib/supabase/server'
-
+    
     export default async function DashboardPage() {
       const supabase = createClient()
       const { data: screenings } = await supabase
@@ -58,7 +58,7 @@ Every technology in LASUMedScreen was chosen deliberately. This page explains th
   </Accordion>
 
   <Accordion title="Supabase" icon="database">
-    **Role:** Backend-as-a-Service (Auth + Database + Realtime + Storage)
+    **Role:** Backend-as-a-Service (Auth, Database, Realtime, and Storage)
 
     Supabase replaces what would otherwise be a separate authentication service, a managed Postgres host, a WebSocket server, and a file storage provider. All four are available through a single SDK and a single dashboard. Row Level Security policies are written in SQL and enforced by Postgres itself, meaning no amount of client-side or server-side logic can accidentally expose one student's data to another. Supabase Auth supports email/password login, magic links, and OAuth providers out of the box. The Realtime service streams database change events to subscribed clients, which is how the student dashboard reflects clearance decisions without a page refresh. The free tier is sufficient for development and small production deployments.
   </Accordion>
@@ -79,12 +79,12 @@ Every technology in LASUMedScreen was chosen deliberately. This page explains th
 ## Stack Overview
 
 | Layer | Technology | Version |
-|---|---|---|
+| --- | --- | --- |
 | Framework | Next.js | 15.x |
 | UI Library | React | 19.x |
 | Language | TypeScript | 5.x |
 | Styling | Tailwind CSS | 3.x |
 | Backend/Auth/DB | Supabase | Latest |
 | Email | Resend | Latest |
-| Runtime | Node.js | 20+ |
+| Runtime | Node.js | 20 or later |
 | Deployment | Vercel | - |

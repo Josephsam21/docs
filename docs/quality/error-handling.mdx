@@ -11,12 +11,12 @@ Robust error handling is what separates a frustrating application from a trustwo
 Different types of errors require different handling strategies. The table below maps each category to its source and resolution path.
 
 | Category | Examples | Handling |
-|---|---|---|
-| Validation errors | Invalid form input | Zod + inline form errors |
+| --- | --- | --- |
+| Validation errors | Invalid form input | Zod with inline form errors |
 | Auth errors | Expired session, wrong password | Redirect / toast |
-| API errors | 404, 403, 500 | Error response + toast |
-| Network errors | No connectivity | Toast + retry |
-| Unexpected errors | Unhandled exceptions | Error boundary + Sentry |
+| API errors | 404, 403, 500 | Error response with toast |
+| Network errors | No connectivity | Toast with retry |
+| Unexpected errors | Unhandled exceptions | Error boundary with Sentry |
 
 ## API Error Responses
 

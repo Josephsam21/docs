@@ -4,7 +4,7 @@ sidebarTitle: "Overview"
 description: "High-level architecture of LASUMedScreen: Next.js 15 frontend, Supabase backend, Edge Functions, and Resend email in a modern full-stack design."
 ---
 
-LASUMedScreen follows a modern full-stack architecture with a clear separation between the presentation layer (Next.js 15 App Router), the data layer (Supabase Postgres), and asynchronous processing (Supabase Edge Functions + Resend). Each layer has a single, well-defined responsibility — making the system easier to extend, test, and reason about as your institution's screening workflows grow.
+LASUMedScreen follows a modern full-stack architecture with a clear separation between the presentation layer (Next.js 15 App Router), the data layer (Supabase Postgres), and asynchronous processing (Supabase Edge Functions and Resend). Each layer has a single, well-defined responsibility — making the system easier to extend, test, and reason about as your institution's screening workflows grow.
 
 ## Architecture Diagram
 
@@ -48,8 +48,8 @@ graph TB
 Each layer owns a specific slice of the system. The table below maps every technology to its role so you always know where a given concern lives.
 
 | Layer | Technology | Responsibility |
-|---|---|---|
-| Presentation | React 19 + Tailwind CSS | UI components, forms, dashboards |
+| --- | --- | --- |
+| Presentation | React 19 and Tailwind CSS | UI components, forms, dashboards |
 | Routing | Next.js 15 App Router | Page routing, middleware, layouts |
 | API Layer | Next.js API Routes | REST endpoints for client/server communication |
 | Auth | Supabase Auth | Session management, user roles |
@@ -82,6 +82,7 @@ LASUMedScreen enforces security at three distinct layers, so a bypass at one lay
   <Card title="Folder Structure" icon="folder-tree" href="/docs/architecture/folder-structure">
     Explore every directory and file in the LASUMedScreen project.
   </Card>
+
   <Card title="Data Flow" icon="arrow-right-arrow-left" href="/docs/architecture/data-flow">
     Trace how data moves from React forms through Supabase and back.
   </Card>

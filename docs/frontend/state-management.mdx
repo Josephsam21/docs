@@ -11,10 +11,10 @@ LASUMedScreen uses a layered state management approach — server state lives in
 The table below maps each category of state to the solution used, and the component location where that solution lives.
 
 | State Type | Solution | Location |
-|---|---|---|
-| Server / DB data | RSC + Supabase | Server Components |
+| --- | --- | --- |
+| Server / DB data | RSC and Supabase | Server Components |
 | Auth session | Supabase Auth context | Client Provider |
-| Form state | React Hook Form + Zod | Client Components |
+| Form state | React Hook Form with Zod | Client Components |
 | UI state (modals, toasts) | `useState` / `useReducer` | Client Components |
 | Real-time updates | Supabase Realtime | Client hook |
 | Server cache | Next.js `fetch` cache | Server |
@@ -144,7 +144,7 @@ Form data is not persisted to `localStorage` between sessions because the screen
 One of the most impactful decisions you make when adding a feature is whether the new component should be a Server Component or a Client Component. Use the table below as a quick reference.
 
 | Use a Server Component when... | Use a Client Component when... |
-|---|---|
+| --- | --- |
 | Fetching initial data from Supabase | Handling user interactions (clicks, input) |
 | The component has no interactivity | Using `useState`, `useReducer`, or `useEffect` |
 | Rendering SEO-sensitive content | Subscribing to real-time data streams |
